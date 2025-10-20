@@ -1,0 +1,691 @@
+// Admin Dashboard Logic - Backend Integration
+
+// Always use absolute path from site root
+const API_URL = "/ClusteringGame/api/admin-dashboard.php"
+
+// Initialize admin info
+document.addEventListener("DOMContentLoaded", () => {
+  const admin = adminAuthManager.getCurrentAdmin()
+  if (admin) {
+    document.getElementById("adminUsername").textContent = admin.username || admin.name || "Admin"
+  }
+
+  loadDashboardData()
+  setupTabNavigation()
+  setupTableControls()
+  loadCustomGames()
+  loadClusteringStatus()
+})
+
+// Tab Navigation
+function setupTabNavigation() {
+  const tabs = document.querySelectorAll(".nav-tab")
+  const contents = document.querySelectorAll(".tab-content")
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const targetTab = tab.dataset.tab
+
+      tabs.forEach((t) => t.classList.remove("active"))
+      contents.forEach((c) => c.classList.remove("active"))
+
+      tab.classList.add("active")
+      document.getElementById(targetTab).classList.add("active")
+
+      if (targetTab === "clustering") {
+        loadClusteringData()
+      } else if (targetTab === "students") {
+        loadStudentsTable()
+      } else if (targetTab === "leaderboard") {
+        // Initialize leaderboard if not already done
+        if (typeof leaderboardManager !== 'undefined' && !leaderboardManager.refreshInterval) {
+          leaderboardManager.init()
+        }
+      } else if (targetTab === "student-management") {
+        // Initialize student management if not already done
+        if (typeof studentManager !== 'undefined') {
+          studentManager.init()
+        }
+      }
+    })
+  })
+}
+
+// Load Dashboard Data
+async function loadDashboardData() {
+  try {
+    const response = await fetch(`${API_URL}?action=overview`)
+    const result = await response.json()
+
+    if (result.success) {
+  // Update overview stats
+      document.getElementById("totalStudents").textContent = result.overview.totalStudents
+      document.getElementById("totalGamesPlayed").textContent = result.overview.totalGames
+      document.getElementById("averageScore").textContent = result.overview.averageScore
+      document.getElementById("activeToday").textContent = result.overview.activeToday
+
+  // Create charts
+      createGamePopularityChart(result.gamePopularity)
+      createPerformanceChart(result.performanceDistribution)
+    }
+  } catch (error) {
+    console.error("Error loading dashboard data:", error)
+  }
+}
+
+// Load Students Table
+async function loadStudentsTable(searchTerm = "", filterLevel = "all") {
+  try {
+    let url = `${API_URL}?action=students`
+    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`
+    if (filterLevel !== "all") url += `&filter=${filterLevel}`
+
+    const response = await fetch(url)
+    const result = await response.json()
+
+    if (result.success) {
+  const tbody = document.getElementById("studentsTableBody")
+  tbody.innerHTML = ""
+
+      if (result.students.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;">No students found</td></tr>'
+        return
+      }
+
+      result.students.forEach((student) => {
+    const row = document.createElement("tr")
+
+        const performanceClass =
+          student.performance_level === "high"
+            ? "high-perf"
+            : student.performance_level === "medium"
+            ? "medium-perf"
+            : "low-perf"
+
+    row.innerHTML = `
+          <td>${escapeHtml(student.full_name)}</td>
+          <td>${escapeHtml(student.email)}</td>
+          <td>${student.total_score || 0}</td>
+          <td>${student.games_played || 0}</td>
+          <td>${Math.round(student.literacy_progress || 0)}%</td>
+          <td>${Math.round(student.math_progress || 0)}%</td>
+          <td><span class="perf-badge ${performanceClass}">${
+          student.performance_level || "low"
+        }</span></td>
+          <td><button class="view-btn" onclick="viewStudentDetails(${
+            student.user_id
+          })">View</button></td>
+        `
+
+    tbody.appendChild(row)
+  })
+}
+  } catch (error) {
+    console.error("Error loading students:", error)
+  }
+}
+
+
+// Load Clustering Data
+async function loadClusteringData() {
+  try {
+    const content = document.getElementById("clusteringContent")
+    
+    // Show loading state
+    content.innerHTML = `
+      <div class="clustering-placeholder">
+        <div class="placeholder-icon">
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="3"></circle>
+            <circle cx="19" cy="5" r="2"></circle>
+            <circle cx="5" cy="5" r="2"></circle>
+            <circle cx="19" cy="19" r="2"></circle>
+            <circle cx="5" cy="19" r="2"></circle>
+            <line x1="12" y1="9" x2="12" y2="6"></line>
+            <line x1="14.5" y1="10.5" x2="17" y2="7"></line>
+            <line x1="9.5" y1="10.5" x2="7" y2="7"></line>
+            <line x1="14.5" y1="13.5" x2="17" y2="17"></line>
+            <line x1="9.5" y1="13.5" x2="7" y2="17"></line>
+          </svg>
+        </div>
+        <h3>Loading Clustering Analysis...</h3>
+        <p>Please wait while we fetch the latest data</p>
+      </div>
+    `
+
+    const response = await fetch(`${API_URL}?action=clustering`)
+    const result = await response.json()
+
+    if (result.success) {
+      content.innerHTML = ""
+
+      if (!result.clusters || result.clusters.length === 0) {
+        content.innerHTML = `
+          <div class="clustering-placeholder">
+            <div class="placeholder-icon">
+              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </div>
+            <h3>No Clustering Data Available</h3>
+          </div>
+        `
+        return
+      }
+
+      // Summary Stats
+      const totalStudents = result.students.length
+      const summaryDiv = document.createElement("div")
+      summaryDiv.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem;"
+      
+      summaryDiv.innerHTML = `
+        <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:1rem;text-align:center;">
+          <div style="font-size:2rem;color:#10b981;font-weight:700;">${totalStudents}</div>
+          <div style="color:#a0a0a0;font-size:0.9rem;margin-top:0.5rem;">Students Analyzed</div>
+        </div>
+        <div style="background:rgba(102,126,234,0.1);border:1px solid rgba(102,126,234,0.3);border-radius:8px;padding:1rem;text-align:center;">
+          <div style="font-size:2rem;color:#667eea;font-weight:700;">${result.clusters.length}</div>
+          <div style="color:#a0a0a0;font-size:0.9rem;margin-top:0.5rem;">Clusters Formed</div>
+        </div>
+        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:1rem;text-align:center;">
+          <div style="font-size:2rem;color:#f59e0b;font-weight:700;">${new Date().toLocaleDateString()}</div>
+          <div style="color:#a0a0a0;font-size:0.9rem;margin-top:0.5rem;">Last Updated</div>
+        </div>
+      `
+      content.appendChild(summaryDiv)
+
+      // Cluster emoji mapping
+      const clusterEmojis = {
+        'High Achievers': '🏆',
+        'Average Performers': '📚',
+        'Needs Support': '🎯'
+      }
+
+      // Display cluster cards
+      result.clusters.forEach((cluster) => {
+        const clusterCard = document.createElement("div")
+        clusterCard.className = "cluster-card"
+        const emoji = clusterEmojis[cluster.cluster_label] || '📊'
+        
+        clusterCard.innerHTML = `
+          <h3>${emoji} ${cluster.cluster_label}</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-top:1rem;">
+            <div>
+              <div style="color:#667eea;font-size:1.5rem;font-weight:700;">${cluster.student_count}</div>
+              <div style="color:#a0a0a0;font-size:0.85rem;">Students</div>
+            </div>
+            <div>
+              <div style="color:#10b981;font-size:1.5rem;font-weight:700;">${Math.round(cluster.avg_literacy || 0)}%</div>
+              <div style="color:#a0a0a0;font-size:0.85rem;">Avg Literacy</div>
+            </div>
+            <div>
+              <div style="color:#8b5cf6;font-size:1.5rem;font-weight:700;">${Math.round(cluster.avg_math || 0)}%</div>
+              <div style="color:#a0a0a0;font-size:0.85rem;">Avg Math</div>
+            </div>
+            <div>
+              <div style="color:#f59e0b;font-size:1.5rem;font-weight:700;">${Math.round(cluster.avg_performance || 0)}%</div>
+              <div style="color:#a0a0a0;font-size:0.85rem;">Overall</div>
+            </div>
+          </div>
+        `
+        content.appendChild(clusterCard)
+      })
+
+      // Display students in clusters
+      const studentsInClusters = document.createElement("div")
+      studentsInClusters.className = "cluster-students"
+      studentsInClusters.innerHTML = "<h3>📋 Student Distribution</h3>"
+
+      const clusterGroups = {}
+      result.students.forEach((student) => {
+        if (!clusterGroups[student.cluster_number]) {
+          clusterGroups[student.cluster_number] = []
+        }
+        clusterGroups[student.cluster_number].push(student)
+      })
+
+      Object.keys(clusterGroups).sort().forEach((clusterNum) => {
+        const group = document.createElement("div")
+        group.className = "cluster-group"
+        const emoji = clusterEmojis[clusterGroups[clusterNum][0].cluster_label] || '📊'
+        
+        group.innerHTML = `
+          <h4>${emoji} ${clusterGroups[clusterNum][0].cluster_label} (${clusterGroups[clusterNum].length} students)</h4>
+          <ul>
+            ${clusterGroups[clusterNum]
+              .map((s) => `
+                <li>
+                  <strong>${escapeHtml(s.full_name)}</strong> - 
+                  <span style="color:#10b981;">Literacy: ${Math.round(s.literacy_score || 0)}%</span>, 
+                  <span style="color:#8b5cf6;">Math: ${Math.round(s.math_score || 0)}%</span>
+                </li>
+              `)
+              .join("")}
+          </ul>
+        `
+        studentsInClusters.appendChild(group)
+      })
+
+      content.appendChild(studentsInClusters)
+    }
+  } catch (error) {
+    console.error("Error loading clustering data:", error)
+    const content = document.getElementById("clusteringContent")
+    content.innerHTML = `
+      <div class="clustering-placeholder">
+        <div class="placeholder-icon">
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <h3>Error Loading Data</h3>
+        <p>Please check your database connection and try again</p>
+      </div>
+    `
+  }
+}
+
+// View Student Details
+async function viewStudentDetails(userId) {
+  try {
+    const response = await fetch(`${API_URL}?action=student-details&userId=${userId}`)
+    const result = await response.json()
+
+    if (result.success) {
+      alert(`
+Student: ${result.student.full_name}
+Email: ${result.student.email}
+Total Score: ${result.student.total_score}
+Games Played: ${result.student.games_played}
+Literacy Progress: ${Math.round(result.student.literacy_progress)}%
+Math Progress: ${Math.round(result.student.math_progress)}%
+Performance Level: ${result.student.performance_level}
+      `)
+    }
+  } catch (error) {
+    console.error("Error loading student details:", error)
+  }
+}
+
+// Setup Table Controls
+function setupTableControls() {
+  const searchInput = document.getElementById("searchStudent")
+  const filterSelect = document.getElementById("filterPerformance")
+
+  if (searchInput) {
+    let searchTimeout
+    searchInput.addEventListener("input", (e) => {
+      clearTimeout(searchTimeout)
+      searchTimeout = setTimeout(() => {
+        loadStudentsTable(e.target.value, filterSelect?.value || "all")
+      }, 300)
+    })
+  }
+
+  if (filterSelect) {
+    filterSelect.addEventListener("change", (e) => {
+      loadStudentsTable(searchInput?.value || "", e.target.value)
+    })
+  }
+}
+
+// Create Game Popularity Chart
+function createGamePopularityChart(data) {
+  const container = document.getElementById("gamePopularityChart")
+  if (!container || !data) return
+
+  container.innerHTML = ""
+
+  const gameNames = {
+    word_scramble: "Word Scramble",
+    reading_comprehension: "Reading Comprehension",
+    number_puzzle: "Number Puzzle",
+    math_challenge: "Math Challenge",
+    recipe_calculator: "Recipe Calculator",
+  }
+
+  const maxPlays = Math.max(...data.map((d) => d.plays || 0))
+
+  data.forEach((game) => {
+    const bar = document.createElement("div")
+    bar.className = "chart-bar"
+    bar.style.cssText = "margin: 10px 0;"
+
+    const percentage = maxPlays > 0 ? (game.plays / maxPlays) * 100 : 0
+
+    bar.innerHTML = `
+      <div style="margin-bottom: 5px; font-weight: bold;">${gameNames[game.game_type] || game.game_type}</div>
+      <div style="background: #e0e0e0; border-radius: 4px; overflow: hidden;">
+        <div style="background: linear-gradient(90deg, #3B82F6, #8B5CF6); height: 30px; width: ${percentage}%; display: flex; align-items: center; padding-left: 10px; color: white; font-weight: bold;">
+          ${game.plays} plays
+            </div>
+            </div>
+        `
+    container.appendChild(bar)
+  })
+}
+
+// Create Performance Distribution Chart
+function createPerformanceChart(data) {
+  const container = document.getElementById("performanceChart")
+  if (!container || !data) return
+
+  container.innerHTML = ""
+
+  const labels = {
+    low: "Needs Support",
+    medium: "Average Performers",
+    high: "High Achievers",
+  }
+
+  const colors = {
+    low: "#EF4444",
+    medium: "#F59E0B",
+    high: "#10B981",
+  }
+
+  const total = data.reduce((sum, d) => sum + (d.count || 0), 0)
+
+  data.forEach((perf) => {
+    const percentage = total > 0 ? Math.round((perf.count / total) * 100) : 0
+
+    const card = document.createElement("div")
+    card.style.cssText = "margin: 10px 0; padding: 15px; background: #f9fafb; border-radius: 8px;"
+
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-weight: bold;">${labels[perf.performance_level] || perf.performance_level}</span>
+        <span>${perf.count} students (${percentage}%)</span>
+                </div>
+      <div style="background: #e0e0e0; border-radius: 4px; overflow: hidden; height: 20px;">
+        <div style="background: ${colors[perf.performance_level] || '#999'}; height: 100%; width: ${percentage}%;"></div>
+            </div>
+        `
+    container.appendChild(card)
+  })
+}
+
+// Utility: Escape HTML
+function escapeHtml(text) {
+  const div = document.createElement("div")
+  div.textContent = text
+  return div.innerHTML
+}
+
+// Load Custom Games
+async function loadCustomGames() {
+  try {
+    const response = await fetch("/ClusteringGame/api/custom-games.php")
+    const result = await response.json()
+
+    const gamesList = document.getElementById("customGamesList")
+    
+    if (result.success && result.games && result.games.length > 0) {
+      gamesList.innerHTML = ""
+      
+      result.games.forEach(game => {
+        const gameCard = document.createElement("div")
+        gameCard.className = "game-card-custom"
+        
+        const typeBadge = game.game_type === 'literacy' ? 'badge-literacy' : 'badge-math'
+        const difficultyBadge = `badge-${game.difficulty}`
+        
+        gameCard.innerHTML = `
+          <div class="game-card-header">
+            <div class="game-icon-large">${game.icon_emoji || '🎮'}</div>
+          </div>
+          <h3 class="game-card-title">${escapeHtml(game.game_name)}</h3>
+          <p class="game-card-description">${escapeHtml(game.description || 'No description')}</p>
+          <div class="game-card-meta">
+            <span class="game-badge ${typeBadge}">${game.game_type}</span>
+            <span class="game-badge ${difficultyBadge}">${game.difficulty}</span>
+            <span class="game-badge" style="background: rgba(255,255,255,0.1); color: #fff;">
+              ${game.total_questions} questions
+            </span>
+          </div>
+          <div class="game-card-stats">
+            <span>👥 ${game.play_count || 0} plays</span>
+            <span>📅 ${new Date(game.created_at).toLocaleDateString()}</span>
+          </div>
+          <div class="game-card-actions">
+            <button class="btn-edit" onclick="editGame(${game.game_id})">
+              Edit
+            </button>
+            <button class="btn-delete" onclick="deleteGame(${game.game_id}, '${escapeHtml(game.game_name)}')">
+              Delete
+            </button>
+          </div>
+        `
+        
+        gamesList.appendChild(gameCard)
+      })
+    } else {
+      gamesList.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="8" width="18" height="12" rx="2" ry="2"></rect>
+            <line x1="12" y1="8" x2="12" y2="21"></line>
+            <line x1="3" y1="14" x2="21" y2="14"></line>
+          </svg>
+          <h3 style="color: #fff; margin-bottom: 0.5rem;">No Custom Games Yet</h3>
+          <p style="margin-bottom: 1.5rem;">Create your first custom learning game!</p>
+          <button class="create-game-btn" onclick="window.location.href='add-game.php'">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Create Your First Game
+          </button>
+        </div>
+      `
+    }
+  } catch (error) {
+    console.error("Error loading custom games:", error)
+    document.getElementById("customGamesList").innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <p style="color: #ef4444;">Failed to load games. Please try again.</p>
+      </div>
+    `
+  }
+}
+
+// Edit Game
+function editGame(gameId) {
+  window.location.href = `add-game.php?edit=${gameId}`
+}
+
+// Delete Game
+async function deleteGame(gameId, gameName) {
+  const confirmed = await deleteModal(
+    `Are you sure you want to delete "${gameName}"? This action cannot be undone and will permanently remove the game and all its questions.`,
+    "Delete Game"
+  );
+  
+  if (!confirmed) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/ClusteringGame/api/custom-games.php?gameId=${gameId}`, {
+      method: 'DELETE'
+    })
+    
+    const result = await response.json()
+    
+    if (result.success) {
+      await successModal("Game deleted successfully!", "Success")
+      loadCustomGames() // Reload the list
+    } else {
+      await errorModal("Error: " + result.message, "Delete Failed")
+    }
+  } catch (error) {
+    console.error("Error deleting game:", error)
+    await errorModal("Failed to delete game. Please try again.", "Network Error")
+  }
+}
+
+// Clustering Functions
+async function loadClusteringStatus() {
+  try {
+    const response = await fetch('/ClusteringGame/api/clustering.php?action=status')
+    const result = await response.json()
+    
+    if (result.success) {
+      const status = result.status
+      
+      // Update status cards
+      const lastClusteringTime = document.getElementById('lastClusteringTime')
+      const newGamesCount = document.getElementById('newGamesCount')
+      const autoClusteringStatus = document.getElementById('autoClusteringStatus')
+      
+      if (lastClusteringTime) {
+        lastClusteringTime.textContent = status.last_clustering 
+          ? new Date(status.last_clustering).toLocaleString() 
+          : 'Never'
+      }
+      
+      if (newGamesCount) {
+        newGamesCount.textContent = status.new_games_since_last || 0
+      }
+      
+      if (autoClusteringStatus) {
+        autoClusteringStatus.textContent = status.should_run ? 'Will run soon' : 'Up to date'
+        autoClusteringStatus.style.color = status.should_run ? '#ff6b35' : '#28a745'
+      }
+    }
+  } catch (error) {
+    console.error('Error loading clustering status:', error)
+  }
+}
+
+async function runManualClustering() {
+  const button = document.querySelector('.run-clustering-btn')
+  const originalText = button.innerHTML
+  
+  try {
+    // Show loading state
+    button.disabled = true
+    button.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 6v6l4 2"></path>
+      </svg>
+      Running Clustering...
+    `
+    
+    const response = await fetch('/ClusteringGame/api/clustering.php?action=run-manual')
+    const result = await response.json()
+    
+    if (result.success) {
+      if (result.skipped) {
+        await errorModal('Clustering was skipped: ' + result.message, 'Clustering Skipped')
+      } else {
+        await successModal('Clustering completed successfully! The student performance analysis has been updated.', 'Clustering Complete')
+        loadClusteringData() // Refresh clustering results
+      }
+      loadClusteringStatus() // Refresh status
+    } else {
+      await errorModal('Error: ' + result.message, 'Clustering Failed')
+    }
+  } catch (error) {
+    console.error('Error running clustering:', error)
+    await errorModal('Failed to run clustering. Please try again.', 'Network Error')
+  } finally {
+    // Restore button
+    button.disabled = false
+    button.innerHTML = originalText
+  }
+}
+
+// Add CSS for spinning animation
+const style = document.createElement('style')
+style.textContent = `
+  .spinning {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  .clustering-controls {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .run-clustering-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+  }
+  
+  .run-clustering-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+  
+  .run-clustering-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .clustering-status {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+  }
+  
+  .status-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .status-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+  
+  .status-info {
+    flex: 1;
+  }
+  
+  .status-label {
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  
+  .status-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+`
+document.head.appendChild(style)
