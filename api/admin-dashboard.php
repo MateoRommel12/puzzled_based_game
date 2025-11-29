@@ -85,14 +85,27 @@ function handleGetOverview($db) {
     ");
     $activeToday = $stmt->fetch()['active'];
     
-    // Game popularity
+    // Custom games list
     $stmt = $db->query("
-        SELECT game_type, COUNT(*) as plays 
-        FROM game_sessions 
-        WHERE completed_at IS NOT NULL 
-        GROUP BY game_type
+        SELECT 
+            cg.game_id,
+            cg.game_name,
+            cg.game_type,
+            cg.game_category,
+            cg.description,
+            cg.icon_emoji,
+            cg.difficulty,
+            cg.created_at,
+            COUNT(DISTINCT cgq.question_id) as total_questions,
+            COUNT(DISTINCT gs.session_id) as play_count
+        FROM custom_games cg
+        LEFT JOIN custom_game_questions cgq ON cg.game_id = cgq.game_id
+        LEFT JOIN game_sessions gs ON CONCAT('custom_', cg.game_id) = gs.game_type
+        WHERE cg.is_active = 1
+        GROUP BY cg.game_id
+        ORDER BY cg.created_at DESC
     ");
-    $gamePopularity = $stmt->fetchAll();
+    $customGames = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Performance distribution
     $stmt = $db->query("
@@ -110,7 +123,7 @@ function handleGetOverview($db) {
             'averageScore' => $avgScore,
             'activeToday' => (int)$activeToday
         ],
-        'gamePopularity' => $gamePopularity,
+        'customGames' => $customGames,
         'performanceDistribution' => $performanceDistribution
     ]);
 }
@@ -133,9 +146,12 @@ function handleGetStudents($db) {
             sp.math_progress,
             sp.performance_level,
             u.last_login,
-            u.created_at
+            u.created_at,
+            COALESCE(SUM(gs.hints_used), 0) as total_hints_used,
+            COALESCE(SUM(COALESCE(gs.time_taken, TIMESTAMPDIFF(SECOND, gs.started_at, gs.completed_at))), 0) as total_time_consumed
         FROM users u
         LEFT JOIN student_progress sp ON u.user_id = sp.user_id
+        LEFT JOIN game_sessions gs ON u.user_id = gs.user_id AND gs.completed_at IS NOT NULL
         WHERE u.is_active = 1
     ";
     
@@ -155,6 +171,7 @@ function handleGetStudents($db) {
         $params[] = $filter;
     }
     
+    $query .= " GROUP BY u.user_id, u.full_name, u.email, sp.total_score, sp.games_played, sp.literacy_progress, sp.math_progress, sp.performance_level, u.last_login, u.created_at";
     $query .= " ORDER BY sp.total_score DESC";
     
     $stmt = $db->prepare($query);

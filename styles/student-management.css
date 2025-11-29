@@ -65,7 +65,7 @@
 }
 
 .filter-container select {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(15, 23, 42, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 8px;
     padding: 10px 16px;
@@ -78,7 +78,13 @@
 .filter-container select:focus {
     outline: none;
     border-color: #667eea;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(15, 23, 42, 0.95);
+}
+
+/* Ensure dropdown options stay readable on dark backgrounds */
+.filter-container select option {
+    background: #0f172a;
+    color: #fff;
 }
 
 .add-student-btn {

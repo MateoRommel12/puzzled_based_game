@@ -7,6 +7,7 @@ let startTime = null
 let timerInterval = null
 let elapsedSeconds = 0
 let timeLimit = 0
+let hintsUsed = 0  // Track hints used in custom games
 
 // Get game ID from URL
 const urlParams = new URLSearchParams(window.location.search)
@@ -29,7 +30,7 @@ async function loadGameData() {
     
     const result = await response.json()
     
-    if (result.success && result.game) {
+    if (result.success && result.game) {image.png
       gameData = result.game
       
       // Check if game has questions
@@ -42,7 +43,6 @@ async function loadGameData() {
       displayInstructions()
     } else {
       const errorMsg = result.message || 'Game not found'
-      console.error('Game load failed:', errorMsg)
       alert(`Game not found: ${errorMsg}`)
       window.location.href = 'index.php'
     }
@@ -94,8 +94,12 @@ function startCustomGame() {
   document.getElementById('totalQuestionsNum').textContent = gameData.questions.length
   document.getElementById('progressText').textContent = `0/${gameData.questions.length}`
   
+  // Reset game state
+  currentQuestionIndex = 0
+  score = 0
+  correctAnswers = 0
+  hintsUsed = 0
   startTime = Date.now()
-  
   
   startTimer()
   loadQuestion()
@@ -196,7 +200,6 @@ function loadQuestion() {
   // Update question number
   document.getElementById('currentQuestionNum').textContent = currentQuestionIndex + 1
   document.getElementById('headerCurrent').textContent = currentQuestionIndex + 1
-  document.getElementById('questionText').textContent = question.question_text
   
   // Update progress
   document.getElementById('progressText').textContent = `${currentQuestionIndex}/${gameData.questions.length}`
@@ -205,6 +208,45 @@ function loadQuestion() {
   
   const answersContainer = document.getElementById('answersContainer')
   answersContainer.innerHTML = ''
+  
+  // Clean up any existing hint buttons/containers from previous questions
+  const existingHintButton = document.getElementById('hintButton')
+  const existingHintContainer = document.getElementById('hintContainer')
+  if (existingHintButton) existingHintButton.remove()
+  if (existingHintContainer) existingHintContainer.remove()
+  
+  // Check for jumbled sentences by question_type OR game category
+  const isJumbledSentence = question.question_type === 'jumbled_sentence' || 
+                            question.questionType === 'jumbled_sentence' ||
+                            gameData.game_category === 'jumbled_sentences';
+  
+  const isFillBlanks = question.question_type === 'fill_blanks' || 
+                       question.questionType === 'fill_blanks' ||
+                       gameData.game_category === 'fill_blanks';
+  
+  // Handle different question types BEFORE setting question text
+  if (isFillBlanks) {
+    // For fill-blanks, we'll create a different UI
+    displayFillBlanksQuestion(question)
+    return
+  } else if (isJumbledSentence) {
+    // For jumbled sentences, we'll create a different UI
+    displayJumbledSentenceQuestion(question)
+    return
+  }
+  
+  // For regular questions, set the question text
+  document.getElementById('questionText').textContent = question.question_text || question.questionText || ''
+  
+  // Add hint button and container if question has a hint
+  const questionContent = document.querySelector('.question-content')
+  
+  // Use the helper function to add hint button
+  // Check for hint in multiple possible field names
+  const hint = question.hint || question.hintText || null;
+  if (hint && (typeof hint === 'string' && hint.trim() !== '')) {
+    addHintButton(questionContent, question)
+  }
   
   // Get options - handle different question types
   let options = []
@@ -217,10 +259,6 @@ function loadQuestion() {
     ].filter(opt => opt !== null && opt !== '')
   } else if (question.question_type === 'true_false') {
     options = ['True', 'False']
-  } else if (question.question_type === 'fill_blanks') {
-    // For fill-blanks, we'll create a different UI
-    displayFillBlanksQuestion(question)
-    return
   }
   
   // Create answer buttons
@@ -258,6 +296,115 @@ function loadQuestion() {
   
   // Hide feedback
   document.getElementById('feedbackMessage').style.display = 'none'
+}
+
+// Show hint function
+function showHint(hintText) {
+  const hintContainer = document.getElementById('hintContainer')
+  const hintButton = document.getElementById('hintButton')
+  
+  if (hintContainer && hintText) {
+    // Show the hint
+    hintContainer.style.display = 'block'
+    
+    // Hide the button after showing hint
+    if (hintButton) {
+      hintButton.style.display = 'none'
+    }
+    
+    // Track hint usage (only when actually clicked)
+    hintsUsed++
+  }
+}
+
+// Helper function to add hint button to any container
+function addHintButton(container, question) {
+  // Check for hint in multiple possible field names and handle null/empty values
+  const hint = question.hint || question.hintText || null;
+  if (!hint || (typeof hint === 'string' && hint.trim() === '')) {
+    return // No hint available
+  }
+  
+  // Get hint text once
+  const hintText = question.hint || question.hintText || '';
+  
+  // Remove existing hint elements
+  const existingButton = document.getElementById('hintButton')
+  const existingContainer = document.getElementById('hintContainer')
+  if (existingButton) existingButton.remove()
+  if (existingContainer) existingContainer.remove()
+  
+  // Create hint button
+  const hintButton = document.createElement('button')
+  hintButton.id = 'hintButton'
+  hintButton.className = 'hint-button'
+  hintButton.innerHTML = '💡 Need a Hint?'
+  hintButton.style.cssText = `
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(245, 158, 11, 0.2);
+    border: 2px solid rgba(245, 158, 11, 0.5);
+    border-radius: 8px;
+    color: #f59e0b;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: block;
+    width: auto;
+  `
+  hintButton.onclick = () => showHint(hintText)
+  hintButton.onmouseover = () => {
+    hintButton.style.background = 'rgba(245, 158, 11, 0.3)'
+    hintButton.style.borderColor = 'rgba(245, 158, 11, 0.7)'
+  }
+  hintButton.onmouseout = () => {
+    hintButton.style.background = 'rgba(245, 158, 11, 0.2)'
+    hintButton.style.borderColor = 'rgba(245, 158, 11, 0.5)'
+  }
+  
+  // Create hint container (initially hidden)
+  const hintContainer = document.createElement('div')
+  hintContainer.id = 'hintContainer'
+  hintContainer.style.cssText = `
+    display: none;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(245, 158, 11, 0.1);
+    border: 2px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    color: #fbbf24;
+  `
+  hintContainer.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+      <span style="font-size: 1.2rem;">💡</span>
+      <strong style="color: #f59e0b;">Hint:</strong>
+    </div>
+    <p style="margin: 0; color: #fbbf24;">${escapeHtml(hintText)}</p>
+  `
+  
+  // Insert hint button and container after questionText but before answersContainer
+  const questionTextElement = document.getElementById('questionText')
+  const answersContainer = document.getElementById('answersContainer')
+  
+  if (questionTextElement && answersContainer) {
+    // Insert before answersContainer
+    container.insertBefore(hintButton, answersContainer)
+    container.insertBefore(hintContainer, answersContainer)
+  } else {
+    // Fallback: append to container
+    container.appendChild(hintButton)
+    container.appendChild(hintContainer)
+  }
+}
+
+// Utility function to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
 }
 
 // Select an answer
@@ -363,16 +510,16 @@ async function endGame() {
     correctAnswers: correctAnswers,
     accuracy: accuracy,
     streakCount: 0,
-    hintsUsed: 0,
-    gameCategory: gameData.category,  // Add the category field
-    subject: gameData.category        // Add the subject field as backup
+    hintsUsed: hintsUsed || 0,
+    gameCategory: gameData.game_category,  // Category (quiz, fill_blanks, etc.)
+    subject: gameData.game_type,          // Learning type (math or literacy)
+    gameId: gameData.game_id             // Add game_id for mapping
   })
 }
 
 // Save game session
 async function saveGameSession(sessionData) {
   try {
-    
     const response = await fetch('/ClusteringGame/api/game-session.php?action=save', {
       method: 'POST',
       headers: {
@@ -383,8 +530,16 @@ async function saveGameSession(sessionData) {
     
     if (!response.ok) {
       const text = await response.text()
-      console.error('❌ HTTP error:', response.status, text)
-      alert(`Failed to save game score! Status: ${response.status}`)
+      let errorMessage = `Failed to save game score! Status: ${response.status}`
+      try {
+        const errorData = JSON.parse(text)
+        if (errorData.message) {
+          errorMessage = errorData.message
+        }
+      } catch (e) {
+        errorMessage += '\n\n' + text.substring(0, 200)
+      }
+      alert(errorMessage)
       return
     }
     
@@ -393,16 +548,515 @@ async function saveGameSession(sessionData) {
     if (result.success) {
       // Game session saved successfully
     } else {
-      console.error('❌ Failed to save game session:', result.message)
-      alert(`Failed to save your score: ${result.message}\n\n${result.debug ? JSON.stringify(result.debug) : ''}`)
+      alert(`Failed to save your score: ${result.message}`)
     }
   } catch (error) {
-    console.error('💥 Error saving game session:', error)
-    alert(`Error saving your score: ${error.message}\n\nCheck if you're logged in.`)
+    alert(`Error saving your score: ${error.message}\n\nCheck if you're logged in and try refreshing the page.`)
   }
 }
 
 // Display fill-blanks question
+// Display jumbled sentence question
+function displayJumbledSentenceQuestion(question) {
+  const correctSentence = question.question_text || question.correct_answer || ''
+  
+  if (!correctSentence || correctSentence.trim() === '') {
+    document.getElementById('answersContainer').innerHTML = `
+      <div style="color: #ef4444; padding: 2rem; text-align: center;">
+        <p>⚠️ Error: No sentence data found for this question.</p>
+        <p>Please contact an admin to fix this game.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  const words = correctSentence.split(' ').filter(word => word.trim() !== '')
+  
+  if (words.length === 0) {
+    document.getElementById('answersContainer').innerHTML = `
+      <div style="color: #ef4444; padding: 2rem; text-align: center;">
+        <p>⚠️ Error: Sentence appears to be empty.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Scramble the words
+  const scrambledWords = [...words].sort(() => Math.random() - 0.5)
+  
+  if (scrambledWords.length === 0) {
+    document.getElementById('answersContainer').innerHTML = `
+      <div style="color: #ef4444; padding: 2rem; text-align: center;">
+        <p>⚠️ Error: No words found in sentence.</p>
+        <p>Original sentence: "${correctSentence}"</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Store selected words order
+  let selectedWords = []
+  
+  // Update question text
+  document.getElementById('questionText').innerHTML = `
+    <p>Drag and drop words to rearrange them into a correct sentence:</p>
+  `
+  
+  // Add hint button if hint exists (don't show default instruction as hint)
+  const hint = question.hint || question.hintText || null;
+  if (hint && (typeof hint === 'string' && hint.trim() !== '')) {
+    const questionContent = document.querySelector('.question-content')
+    addHintButton(questionContent, question)
+  }
+  
+  // Generate word bank HTML
+  const wordBankHTML = scrambledWords.map((word, index) => {
+    // Escape HTML to prevent XSS
+    const safeWord = word.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `
+      <div 
+        class="draggable-word" 
+        draggable="true"
+        data-word="${safeWord.replace(/"/g, '&quot;')}" 
+        data-word-id="word-${index}"
+        data-original-index="${index}"
+      >${safeWord}</div>
+    `;
+  }).join('');
+  
+  // Create the UI
+  const answersContainer = document.getElementById('answersContainer')
+  if (!answersContainer) {
+    return;
+  }
+  
+  answersContainer.innerHTML = `
+    <div class="jumbled-sentence-container">
+      <div class="scrambled-words" id="scrambledWords">
+        <h4>Scrambled Words:</h4>
+        <div class="word-bank" id="wordBank">
+          ${wordBankHTML}
+        </div>
+      </div>
+      
+      <div class="selected-sentence" id="selectedSentence">
+        <h4>Your Sentence:</h4>
+        <div class="sentence-display" id="sentenceDisplay" data-drop-zone="true">
+          <span class="placeholder">Drag words here to build your sentence...</span>
+        </div>
+        <button class="clear-btn" onclick="clearJumbledSentence()" style="margin-top: 0.5rem;">Clear All</button>
+      </div>
+      
+      <button id="checkJumbledAnswerBtn" class="check-answer-btn" onclick="checkJumbledSentenceAnswer()">
+        Check Answer
+      </button>
+    </div>
+  `
+  
+  // Store data for checking
+  window.jumbledSentenceData = {
+    correctWords: words,
+    correctSentence: correctSentence,
+    selectedWords: selectedWords,
+    scrambledWords: scrambledWords,
+    usedWords: new Set() // Track which words are in the sentence
+  }
+  
+  // Setup drag and drop
+  setupJumbledSentenceDragDrop()
+  
+  // Add styles
+  const style = document.createElement('style')
+  style.id = 'jumbled-sentence-styles'
+  // Remove old styles if they exist
+  const oldStyle = document.getElementById('jumbled-sentence-styles')
+  if (oldStyle) oldStyle.remove()
+  
+  style.textContent = `
+    .jumbled-sentence-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .word-bank {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      min-height: 60px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 2px dashed rgba(96, 165, 250, 0.3);
+      border-radius: 8px;
+    }
+    .draggable-word {
+      padding: 0.75rem 1.25rem;
+      background: rgba(96, 165, 250, 0.2);
+      border: 2px solid rgba(96, 165, 250, 0.4);  
+      border-radius: 8px;
+      color: #60a5fa;
+      font-size: 1rem;
+      cursor: grab;
+      transition: all 0.3s ease;
+      user-select: none;
+    }
+    .draggable-word:hover {
+      background: rgba(96, 165, 250, 0.3);
+      border-color: #60a5fa;
+      transform: translateY(-2px);
+    }
+    .draggable-word.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+    .draggable-word.used {
+      opacity: 0.3;
+      cursor: not-allowed;
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .sentence-display {
+      min-height: 80px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+    .sentence-display.drag-over {
+      background: rgba(96, 165, 250, 0.1);
+      border-color: #60a5fa;
+      border-style: solid;
+    }
+    .sentence-display .placeholder {
+      color: #888;
+      font-style: italic;
+      width: 100%;
+      text-align: center;
+    }
+    .sentence-word {
+      padding: 0.75rem 1.25rem;
+      background: rgba(59, 130, 246, 0.3);
+      border: 2px solid rgba(59, 130, 246, 0.5);
+      border-radius: 8px;
+      color: #3b82f6;
+      cursor: grab;
+      user-select: none;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .sentence-word:hover {
+      background: rgba(59, 130, 246, 0.4);
+      border-color: #3b82f6;
+      transform: scale(1.05);
+    }
+    .sentence-word.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+    .clear-btn {
+      padding: 0.5rem 1rem;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 6px;
+      color: #ef4444;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .clear-btn:hover {
+      background: rgba(239, 68, 68, 0.3);
+      transform: translateY(-1px);
+    }
+  `
+  document.head.appendChild(style)
+}
+
+// Setup drag and drop for jumbled sentences
+function setupJumbledSentenceDragDrop() {
+  const wordBank = document.getElementById('wordBank')
+  const sentenceDisplay = document.getElementById('sentenceDisplay')
+  
+  // Make words in bank draggable
+  const draggableWords = wordBank.querySelectorAll('.draggable-word')
+  draggableWords.forEach(word => {
+    word.addEventListener('dragstart', handleDragStart)
+    word.addEventListener('dragend', handleDragEnd)
+  })
+  
+  // Setup drop zone
+  sentenceDisplay.addEventListener('dragover', handleDragOver)
+  sentenceDisplay.addEventListener('drop', handleDrop)
+  sentenceDisplay.addEventListener('dragleave', handleDragLeave)
+  
+  // Allow reordering words in sentence by dragging them
+  sentenceDisplay.addEventListener('dragstart', (e) => {
+    if (e.target.classList.contains('sentence-word')) {
+      e.dataTransfer.setData('text/plain', e.target.dataset.word)
+      e.dataTransfer.setData('source', 'sentence')
+      e.target.classList.add('dragging')
+    }
+  })
+  
+  // Allow removing words by dragging back to word bank
+  wordBank.addEventListener('dragover', (e) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  })
+  
+  wordBank.addEventListener('drop', (e) => {
+    e.preventDefault()
+    const word = e.dataTransfer.getData('text/plain')
+    const source = e.dataTransfer.getData('source')
+    
+    if (source === 'sentence') {
+      // Remove word from sentence and add back to bank
+      removeWordFromSentence(word)
+    }
+  })
+}
+
+// Drag event handlers
+function handleDragStart(e) {
+  if (!e.target.classList.contains('draggable-word') || e.target.classList.contains('used')) {
+    e.preventDefault()
+    return
+  }
+  
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', e.target.dataset.word)
+  e.dataTransfer.setData('word-id', e.target.dataset.wordId)
+  e.dataTransfer.setData('source', 'bank')
+  
+  e.target.classList.add('dragging')
+}
+
+function handleDragEnd(e) {
+  e.target.classList.remove('dragging')
+}
+
+function handleDragOver(e) {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  e.currentTarget.classList.add('drag-over')
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over')
+}
+
+function handleDrop(e) {
+  e.preventDefault()
+  e.currentTarget.classList.remove('drag-over')
+  
+  const word = e.dataTransfer.getData('text/plain')
+  const wordId = e.dataTransfer.getData('word-id')
+  const source = e.dataTransfer.getData('source')
+  
+  if (source === 'bank' && word && !window.jumbledSentenceData.usedWords.has(word)) {
+    // Add word to sentence
+    addWordToSentence(word, wordId)
+  } else if (source === 'sentence') {
+    // Word is being reordered - find insertion point
+    const sentenceDisplay = document.getElementById('sentenceDisplay')
+    const afterElement = getDragAfterElement(sentenceDisplay, e.clientX)
+    
+    const draggedWord = document.querySelector('.sentence-word.dragging')
+    if (draggedWord && draggedWord.dataset.word === word) {
+      // Remove from current position
+      draggedWord.remove()
+      
+      // Insert at new position
+      if (afterElement == null) {
+        sentenceDisplay.appendChild(draggedWord)
+      } else {
+        sentenceDisplay.insertBefore(draggedWord, afterElement)
+      }
+      
+      // Update order
+      updateSentenceOrder()
+    }
+  }
+}
+
+// Helper function to find where to insert dragged element
+function getDragAfterElement(container, x) {
+  const draggableElements = [...container.querySelectorAll('.sentence-word:not(.dragging)')]
+  
+  return draggableElements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect()
+    const offset = x - box.left - box.width / 2
+    
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child }
+    } else {
+      return closest
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element
+}
+
+// Add word to sentence
+function addWordToSentence(word, wordId) {
+  if (!window.jumbledSentenceData) return
+  
+  const sentenceDisplay = document.getElementById('sentenceDisplay')
+  const placeholder = sentenceDisplay.querySelector('.placeholder')
+  if (placeholder) placeholder.remove()
+  
+  // Create word element in sentence
+  const wordElement = document.createElement('div')
+  wordElement.className = 'sentence-word'
+  wordElement.textContent = word
+  wordElement.dataset.word = word
+  wordElement.draggable = true
+  
+  // Add drag handlers for reordering
+  wordElement.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', word)
+    e.dataTransfer.setData('source', 'sentence')
+    e.target.classList.add('dragging')
+  })
+  
+  wordElement.addEventListener('dragend', (e) => {
+    e.target.classList.remove('dragging')
+  })
+  
+  sentenceDisplay.appendChild(wordElement)
+  
+  // Mark word as used in bank
+  const bankWord = document.querySelector(`.draggable-word[data-word-id="${wordId}"]`)
+  if (bankWord) {
+    bankWord.classList.add('used')
+  }
+  
+  // Update data
+  window.jumbledSentenceData.selectedWords.push(word)
+  window.jumbledSentenceData.usedWords.add(word)
+  
+  // Update order when dropped
+  updateSentenceOrder()
+}
+
+// Remove word from sentence
+function removeWordFromSentence(word) {
+  if (!window.jumbledSentenceData) return
+  
+  // Remove from sentence display
+  const wordElement = document.querySelector(`.sentence-word[data-word="${word}"]`)
+  if (wordElement) {
+    wordElement.remove()
+  }
+  
+  // Remove from data
+  const index = window.jumbledSentenceData.selectedWords.indexOf(word)
+  if (index > -1) {
+    window.jumbledSentenceData.selectedWords.splice(index, 1)
+  }
+  window.jumbledSentenceData.usedWords.delete(word)
+  
+  // Show word in bank again
+  const bankWords = document.querySelectorAll('.draggable-word')
+  bankWords.forEach(bw => {
+    if (bw.dataset.word === word) {
+      bw.classList.remove('used')
+    }
+  })
+  
+  // Show placeholder if sentence is empty
+  const sentenceDisplay = document.getElementById('sentenceDisplay')
+  if (sentenceDisplay.children.length === 0) {
+    sentenceDisplay.innerHTML = '<span class="placeholder">Drag words here to build your sentence...</span>'
+  }
+  
+  updateSentenceOrder()
+}
+
+// Update sentence order based on DOM order
+function updateSentenceOrder() {
+  if (!window.jumbledSentenceData) return
+  
+  const sentenceDisplay = document.getElementById('sentenceDisplay')
+  const wordElements = sentenceDisplay.querySelectorAll('.sentence-word')
+  
+  window.jumbledSentenceData.selectedWords = Array.from(wordElements).map(el => el.dataset.word)
+}
+
+// Clear jumbled sentence
+function clearJumbledSentence() {
+  if (!window.jumbledSentenceData) return
+  
+  // Clear sentence display
+  const sentenceDisplay = document.getElementById('sentenceDisplay')
+  sentenceDisplay.innerHTML = '<span class="placeholder">Drag words here to build your sentence...</span>'
+  
+  // Reset data
+  window.jumbledSentenceData.selectedWords = []
+  window.jumbledSentenceData.usedWords.clear()
+  
+  // Show all words in bank again
+  const bankWords = document.querySelectorAll('.draggable-word')
+  bankWords.forEach(word => {
+    word.classList.remove('used')
+  })
+}
+
+// Check jumbled sentence answer
+function checkJumbledSentenceAnswer() {
+  if (!window.jumbledSentenceData) return
+  
+  const selected = window.jumbledSentenceData.selectedWords
+  const correct = window.jumbledSentenceData.correctWords
+  
+  // Normalize for comparison (trim, lowercase)
+  const selectedNormalized = selected.map(w => w.trim().toLowerCase())
+  const correctNormalized = correct.map(w => w.trim().toLowerCase())
+  
+  const isCorrect = JSON.stringify(selectedNormalized) === JSON.stringify(correctNormalized)
+  
+  const feedbackMessage = document.getElementById('feedbackMessage')
+  const checkBtn = document.getElementById('checkJumbledAnswerBtn')
+  
+  if (isCorrect) {
+    const points = gameData.questions[currentQuestionIndex].points || 10
+    score += points
+    correctAnswers++
+    
+    feedbackMessage.textContent = '✓ Correct! Great job!'
+    feedbackMessage.style.background = 'rgba(16, 185, 129, 0.2)'
+    feedbackMessage.style.borderColor = '#10b981'
+    feedbackMessage.style.color = '#10b981'
+    feedbackMessage.style.display = 'block'
+    
+    checkBtn.disabled = true
+    
+    setTimeout(() => {
+      currentQuestionIndex++
+      loadQuestion()
+    }, 1500)
+  } else {
+    feedbackMessage.textContent = `✗ Incorrect. The correct sentence is: "${window.jumbledSentenceData.correctSentence}"`
+    feedbackMessage.style.background = 'rgba(239, 68, 68, 0.2)'
+    feedbackMessage.style.borderColor = '#ef4444'
+    feedbackMessage.style.color = '#ef4444'
+    feedbackMessage.style.display = 'block'
+    
+    // Show correct answer
+    const sentenceDisplay = document.getElementById('sentenceDisplay')
+    sentenceDisplay.innerHTML = correct.map((word, i) => 
+      `<div class="sentence-word" style="background: rgba(16, 185, 129, 0.3); border-color: #10b981; cursor: default;">${word}</div>`
+    ).join('')
+    
+    setTimeout(() => {
+      currentQuestionIndex++
+      loadQuestion()
+    }, 3000)
+  }
+}
+
 function displayFillBlanksQuestion(question) {
   
   // Parse blanks and choices from the question data
@@ -453,6 +1107,13 @@ function displayFillBlanksQuestion(question) {
   
   // Update the UI
   document.getElementById('questionText').innerHTML = `<p>${passage}</p>`
+  
+  // Add hint button if question has a hint
+  const hint = question.hint || question.hintText || null;
+  if (hint && (typeof hint === 'string' && hint.trim() !== '')) {
+    const questionContent = document.querySelector('.question-content')
+    addHintButton(questionContent, question)
+  }
   
   // Create word bank
   const answersContainer = document.getElementById('answersContainer')

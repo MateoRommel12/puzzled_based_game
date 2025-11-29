@@ -93,6 +93,8 @@ class WordScrambleGame {
     this.sessionStartTs = null;
     this.timerInterval = null;
     this.elapsedSeconds = 0;
+    // Hint tracking - count hints as they're displayed (1 per word)
+    this.hintsUsed = 0;
   }
 
   shuffleArray(array) {
@@ -120,6 +122,8 @@ class WordScrambleGame {
     this.currentWord = this.getCurrentWord();
     this.scrambledLetters = this.scrambleWord(this.currentWord.word);
     this.answerLetters = [];
+    // Track hint usage (hints are always displayed, so count 1 per word)
+    this.hintsUsed++;
     
     const taskContent = document.getElementById("taskContent");
     
@@ -317,13 +321,16 @@ class WordScrambleGame {
 
     // Save to database
     if (window.saveGameResult) {
+      // Ensure hintsUsed is always a number
+      const hintsUsedValue = Number(this.hintsUsed) || 0;
+      
       const gameData = {
         score: this.score,
         difficulty: "medium",
         questionsAnswered: this.totalAttempts,
         correctAnswers: this.correctAnswers,
         accuracy: accuracy,
-        hintsUsed: 0,
+        hintsUsed: hintsUsedValue,
         timeTaken: this.elapsedSeconds,
       };
       window.saveGameResult("word_scramble", gameData);

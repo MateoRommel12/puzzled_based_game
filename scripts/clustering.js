@@ -1,4 +1,287 @@
-// K-means Clustering Algorithm for Student Performance
+// Clustering Integration with PythonAnywhere Service
+
+// Configuration
+const CLUSTERING_CONFIG = {
+    serviceUrl: 'https://matts.pythonanywhere.com'
+};
+
+// Clustering Service Integration
+class ClusteringService {
+    constructor() {
+        this.isRunning = false;
+        this.apiUrl = this.getApiUrl();
+    }
+    
+    // Get correct API URL based on current path
+    getApiUrl() {
+        const path = window.location.pathname;
+        if (path.includes('/admin/')) {
+            return '../api/clustering.php';
+        } else {
+            return 'api/clustering.php';
+        }
+    }
+    
+    // Get correct game session API URL
+    getGameSessionApiUrl() {
+        const path = window.location.pathname;
+        if (path.includes('/admin/')) {
+            return '../api/game-session.php';
+        } else {
+            return 'api/game-session.php';
+        }
+    }
+
+    /**
+     * Run clustering analysis via PythonAnywhere service
+     */
+    async runClustering() {
+        if (this.isRunning) {
+            console.log('Clustering already running...');
+            return;
+        }
+
+        this.isRunning = true;
+        this.updateClusteringButton(true);
+
+        try {
+            const response = await fetch(`${this.apiUrl}?action=run`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.showSuccessMessage('Clustering completed successfully!');
+                this.displayClusteringReport(data.report);
+                this.updateLastClusteringTime();
+            } else {
+                this.showErrorMessage('Clustering failed: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Clustering error:', error);
+            this.showErrorMessage('Failed to run clustering: ' + error.message);
+        } finally {
+            this.isRunning = false;
+            this.updateClusteringButton(false);
+        }
+    }
+
+    /**
+     * Check clustering service status
+     */
+    async checkServiceStatus() {
+        try {
+            const response = await fetch(`${this.apiUrl}?action=status`);
+            const data = await response.json();
+            
+            this.updateServiceStatus(data);
+            return data;
+        } catch (error) {
+            console.error('Status check error:', error);
+            this.updateServiceStatus({ success: false, message: 'Service unavailable' });
+        }
+    }
+
+    /**
+     * Update clustering button state
+     */
+    updateClusteringButton(isRunning) {
+        const button = document.querySelector('.run-clustering-btn');
+        if (button) {
+            button.disabled = isRunning;
+            button.textContent = isRunning ? 'Running Clustering...' : 'Run Clustering Now';
+        }
+    }
+
+    /**
+     * Show success message
+     */
+    showSuccessMessage(message) {
+        this.showMessage(message, 'success');
+    }
+
+    /**
+     * Show error message
+     */
+    showErrorMessage(message) {
+        this.showMessage(message, 'error');
+    }
+
+    /**
+     * Show message in UI
+     */
+    showMessage(message, type) {
+        // Create or update message element
+        let messageEl = document.getElementById('clusteringMessage');
+        if (!messageEl) {
+            messageEl = document.createElement('div');
+            messageEl.id = 'clusteringMessage';
+            messageEl.className = 'clustering-message';
+            
+            const clusteringContent = document.getElementById('clusteringContent');
+            if (clusteringContent) {
+                clusteringContent.insertBefore(messageEl, clusteringContent.firstChild);
+            }
+        }
+
+        messageEl.className = `clustering-message clustering-message-${type}`;
+        messageEl.textContent = message;
+        messageEl.style.display = 'block';
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            messageEl.style.display = 'none';
+        }, 5000);
+    }
+
+    /**
+     * Display clustering report
+     */
+    displayClusteringReport(report) {
+        const content = document.getElementById('clusteringContent');
+        if (!content) return;
+
+        const reportHTML = `
+            <div class="clustering-report">
+                <div class="report-header">
+                    <h3>Clustering Analysis Report</h3>
+                    <p class="report-date">Analysis Date: ${report.analysis_date}</p>
+                </div>
+                
+                <div class="report-summary">
+                    <div class="summary-item">
+                        <span class="summary-label">Total Students:</span>
+                        <span class="summary-value">${report.total_students}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Clusters Created:</span>
+                        <span class="summary-value">${report.number_of_clusters}</span>
+                    </div>
+                </div>
+
+                <div class="clusters-grid">
+                    ${report.clusters.map(cluster => `
+                        <div class="cluster-card cluster-${cluster.cluster_number}">
+                            <div class="cluster-header">
+                                <h4>${cluster.label}</h4>
+                                <span class="cluster-count">${cluster.student_count} students (${cluster.percentage}%)</span>
+                            </div>
+                            <div class="cluster-stats">
+                                <div class="stat">
+                                    <span class="stat-label">Avg Performance:</span>
+                                    <span class="stat-value">${cluster.average_performance}%</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Literacy Avg:</span>
+                                    <span class="stat-value">${cluster.literacy_average}%</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Math Avg:</span>
+                                    <span class="stat-value">${cluster.math_average}%</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Accuracy Avg:</span>
+                                    <span class="stat-value">${cluster.accuracy_average}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        content.innerHTML = reportHTML;
+    }
+
+    /**
+     * Update service status display
+     */
+    updateServiceStatus(status) {
+        const statusElement = document.getElementById('serviceStatus');
+        if (statusElement) {
+            if (status.success) {
+                statusElement.innerHTML = `
+                    <div class="status-indicator online"></div>
+                    Service Online - ${status.service_status}
+                `;
+            } else {
+                statusElement.innerHTML = `
+                    <div class="status-indicator offline"></div>
+                    Service Offline - ${status.message}
+                `;
+            }
+        }
+    }
+
+    /**
+     * Update last clustering time
+     */
+    updateLastClusteringTime() {
+        const timeElement = document.getElementById('lastClusteringTime');
+        if (timeElement) {
+            timeElement.textContent = new Date().toLocaleString();
+        }
+    }
+
+    /**
+     * Load clustering data
+     */
+    async loadClusteringData() {
+        try {
+            // Load latest clustering results from database
+            const response = await fetch(`${this.apiUrl}?action=status`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateServiceStatus(data);
+            }
+            
+        } catch (error) {
+            console.error('Error loading clustering data:', error);
+        }
+    }
+
+    /**
+     * Update new games count
+     */
+    async updateNewGamesCount() {
+        try {
+            const response = await fetch(this.getGameSessionApiUrl() + '?action=get-stats');
+            const data = await response.json();
+            
+            if (data.success) {
+                const countElement = document.getElementById('newGamesCount');
+                if (countElement) {
+                    // This would need to be calculated based on last clustering time
+                    countElement.textContent = '0'; // Placeholder
+                }
+            }
+        } catch (error) {
+            console.error('Error updating games count:', error);
+        }
+    }
+}
+
+// Initialize clustering service
+const clusteringService = new ClusteringService();
+
+// Global functions for backward compatibility
+function runManualClustering() {
+    clusteringService.runClustering();
+}
+
+function loadClusteringData() {
+    clusteringService.loadClusteringData();
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Check service status on load
+    clusteringService.checkServiceStatus();
+    
+    // Load initial data
+    clusteringService.loadClusteringData();
+});
+
+// Legacy K-means Clustering Algorithm for Student Performance (kept for reference)
 
 class StudentClustering {
   constructor(students, k = 3) {

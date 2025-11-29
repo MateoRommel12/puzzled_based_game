@@ -211,7 +211,7 @@ $csrfToken = SecurityManager::generateCSRFToken();
 
                         <div class="form-group">
                             <label for="gameType">Learning Type *</label>
-                            <select id="gameType" required>
+                            <select id="gameType" required onchange="filterCategoryOptions()">
                                 <option value="">Select type...</option>
                                 <option value="literacy">Literacy</option>
                                 <option value="math">Math</option>
@@ -228,8 +228,8 @@ $csrfToken = SecurityManager::generateCSRFToken();
                                 <option value="puzzle">Puzzle</option>
                                 <option value="word">Word Game</option>
                                 <option value="fill_blanks">Fill in the Blanks</option>
+                                <option value="jumbled_sentences">Jumbled Sentences</option>
                                 <option value="math">Math Challenge</option>
-                                <option value="other">Other</option>
                             </select>
                         </div>
 
@@ -273,8 +273,21 @@ $csrfToken = SecurityManager::generateCSRFToken();
                     </button>
                 </div>
 
+                <!-- Jumbled Sentences Specific Section -->
+                <div class="builder-section" id="jumbledSentencesSection" style="display: none;">
+                    <h2 class="section-title">🔀 Jumbled Sentences</h2>
+                    
+                    <div id="jumbledSentencesList" class="questions-list">
+                        <!-- Jumbled sentences will be added here dynamically -->
+                    </div>
+
+                    <button type="button" class="add-question-btn" onclick="addJumbledSentence()">
+                        + Add Jumbled Sentence
+                    </button>
+                </div>
+
                 <!-- Questions Section -->
-                <div class="builder-section" id="questionsSection">
+                <div class="builder-section" id="questionsSection" style="display: none;">
                     <h2 class="section-title">❓ Questions</h2>
                     
                     <div id="questionsList" class="questions-list">

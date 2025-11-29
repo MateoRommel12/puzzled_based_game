@@ -168,6 +168,9 @@ class RecipeCalculatorGame {
     this.sessionStartTs = null;
     this.timerInterval = null;
     this.elapsedSeconds = 0;
+    // Hint tracking
+    this.hintsUsed = 0;
+    this.currentChallengeHintShown = false;
   }
   
 
@@ -188,6 +191,9 @@ class RecipeCalculatorGame {
     const recipeContent = document.getElementById("recipeContent");
     const recipeType = document.getElementById("recipeType");
 
+    // Reset hint tracking for new challenge
+    this.currentChallengeHintShown = false;
+
     // Update type badge
     recipeType.textContent = `${this.getTypeEmoji(challenge.type)} ${this.getTypeName(challenge.type)}`;
     recipeType.style.background = this.getTypeColor(challenge.type);
@@ -205,7 +211,7 @@ class RecipeCalculatorGame {
       </div>
       <p class="challenge-question">${challenge.question}</p>
       <div class="options-grid" id="optionsGrid"></div>
-      <button class="hint-button" onclick="game.showExplanation()">💡 Show Solution</button>
+      <button class="hint-button" onclick="game.showExplanation(true)">💡 Show Solution</button>
       <div class="explanation-display" id="explanationDisplay" style="display:none;"></div>
     `;
 
@@ -260,9 +266,16 @@ class RecipeCalculatorGame {
     return colors[type] || "linear-gradient(135deg, #667eea, #764ba2)";
   }
 
-  showExplanation() {
+  showExplanation(userInitiated = false) {
     const challenge = this.getCurrentChallenge();
     const explanationDisplay = document.getElementById("explanationDisplay");
+    
+    // Only track hint if user clicked the button (not auto-shown on wrong answer)
+    if (userInitiated && !this.currentChallengeHintShown) {
+      this.hintsUsed++;
+      this.currentChallengeHintShown = true;
+    }
+    
     explanationDisplay.innerHTML = `💡 <strong>Solution:</strong> ${challenge.explanation}`;
     explanationDisplay.style.display = "block";
     this.score = Math.max(0, this.score - 3);
@@ -353,7 +366,7 @@ class RecipeCalculatorGame {
         questionsAnswered: this.totalAttempts,
         correctAnswers: this.correctAnswers,
         accuracy: accuracy,
-        hintsUsed: 0,
+        hintsUsed: this.hintsUsed || 0,
         timeTaken: this.elapsedSeconds,
       };
       window.saveGameResult("recipe-calculator", gameData);

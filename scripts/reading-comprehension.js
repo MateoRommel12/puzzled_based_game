@@ -108,6 +108,9 @@ class ReadingComprehensionGame {
     this.sessionStartTs = null;
     this.timerInterval = null;
     this.elapsedSeconds = 0;
+    // Hint tracking
+    this.hintsUsed = 0;
+    this.currentHintShown = false;
   }
 
   shuffleArray(array) {
@@ -135,6 +138,7 @@ class ReadingComprehensionGame {
   loadQuestion() {
     this.currentQuestion = this.getCurrentQuestion();
     const taskContent = document.getElementById("taskContent");
+    this.currentHintShown = false;
     
     taskContent.innerHTML = `
       <div class="passage-section">
@@ -156,8 +160,21 @@ class ReadingComprehensionGame {
             </button>`
           ).join('')}
         </div>
+
+        <div class="hint-section">
+          <button class="hint-button" id="hintButton">💡 Need a Hint?</button>
+          <div class="hint-display" id="hintDisplay" style="display:none;"></div>
+        </div>
       </div>
     `;
+
+    // Attach hint button event listener with proper context
+    const hintButton = document.getElementById("hintButton");
+    if (hintButton) {
+      hintButton.addEventListener('click', () => {
+        this.showHint();
+      });
+    }
 
     this.updateProgress();
   }
@@ -216,6 +233,22 @@ class ReadingComprehensionGame {
     }, 2500);
   }
 
+  showHint() {
+    if (this.currentHintShown) {
+      return;
+    }
+    
+    const hintDisplay = document.getElementById("hintDisplay");
+    if (!hintDisplay) {
+      return;
+    }
+    
+    hintDisplay.innerHTML = `💡 ${this.currentQuestion.explanation}`;
+    hintDisplay.style.display = "block";
+    this.hintsUsed++;
+    this.currentHintShown = true;
+  }
+
   nextQuestion() {
     this.currentQuestionIndex++;
 
@@ -271,13 +304,16 @@ class ReadingComprehensionGame {
 
     // Save to database
     if (window.saveGameResult) {
+      // Ensure hintsUsed is always a number
+      const hintsUsedValue = Number(this.hintsUsed) || 0;
+      
       const gameData = {
         score: this.score,
         difficulty: "medium",
         questionsAnswered: this.totalAttempts,
         correctAnswers: this.correctAnswers,
         accuracy: accuracy,
-        hintsUsed: 0,
+        hintsUsed: hintsUsedValue,
         timeTaken: this.elapsedSeconds,
       };
       window.saveGameResult("reading_comprehension", gameData);

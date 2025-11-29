@@ -194,6 +194,12 @@ function handlePost($db) {
         return;
     }
     
+    // Handle jumbled sentences games differently
+    if ($data['gameCategory'] === 'jumbled_sentences') {
+        handleJumbledSentencesGame($db, $data);
+        return;
+    }
+    
     // Validate required fields for regular games
     $required = ['gameName', 'gameType', 'gameCategory', 'difficulty', 'questions'];
     foreach ($required as $field) {
@@ -243,6 +249,10 @@ function handlePost($db) {
         ");
         
         foreach ($data['questions'] as $question) {
+            // Normalize hint: convert empty strings to null
+            $hint = isset($question['hint']) ? trim($question['hint']) : null;
+            $hint = ($hint === '') ? null : $hint;
+            
             $stmt->execute([
                 $gameId,
                 $question['questionText'],
@@ -252,7 +262,7 @@ function handlePost($db) {
                 $question['optionB'] ?? null,
                 $question['optionC'] ?? null,
                 $question['optionD'] ?? null,
-                $question['hint'] ?? null,
+                $hint,
                 $question['points'] ?? 10,
                 $question['orderNumber']
             ]);
@@ -332,7 +342,32 @@ function handlePut($db) {
         ]);
         
         // Delete existing questions based on game category
-        if ($data['gameCategory'] === 'fill_blanks') {
+        if ($data['gameCategory'] === 'jumbled_sentences') {
+            // Delete existing jumbled sentence questions
+            $stmt = $db->prepare("DELETE FROM custom_game_questions WHERE game_id = ? AND question_type = 'jumbled_sentence'");
+            $stmt->execute([$gameId]);
+            
+            // Insert new sentences
+            if (!empty($data['sentences'])) {
+                $stmt = $db->prepare("
+                    INSERT INTO custom_game_questions 
+                    (game_id, question_text, question_type, correct_answer, hint, points, order_number)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ");
+                
+                foreach ($data['sentences'] as $sentence) {
+                    $stmt->execute([
+                        $gameId,
+                        $sentence['sentenceText'],
+                        'jumbled_sentence',
+                        $sentence['sentenceText'],
+                        $sentence['hint'] ?? null,
+                        $sentence['points'] ?? 10,
+                        $sentence['orderNumber']
+                    ]);
+                }
+            }
+        } elseif ($data['gameCategory'] === 'fill_blanks') {
             // Delete fill-blanks data
             $stmt = $db->prepare("SELECT question_id FROM fill_blanks_questions WHERE game_id = ?");
             $stmt->execute([$gameId]);
@@ -364,13 +399,17 @@ function handlePut($db) {
                         VALUES (?, ?, ?, ?, ?, ?)
                     ");
                     
+                    // Normalize hint: convert empty strings to null
+                    $hint = isset($passage['hintText']) ? trim($passage['hintText']) : null;
+                    $hint = ($hint === '') ? null : $hint;
+                    
                     $stmt->execute([
                         $gameId,
                         $passage['passageText'],
                         $data['difficulty'],
                         $data['timeLimit'] ?? null,
                         10,
-                        $passage['hintText'] ?? null
+                        $hint
                     ]);
                     
                     $questionId = $db->lastInsertId();
@@ -450,6 +489,10 @@ function handlePut($db) {
                 ");
                 
                 foreach ($data['questions'] as $question) {
+                    // Normalize hint: convert empty strings to null
+                    $hint = isset($question['hint']) ? trim($question['hint']) : null;
+                    $hint = ($hint === '') ? null : $hint;
+                    
                     $stmt->execute([
                         $gameId,
                         $question['questionText'],
@@ -459,7 +502,7 @@ function handlePut($db) {
                         $question['optionB'] ?? null,
                         $question['optionC'] ?? null,
                         $question['optionD'] ?? null,
-                        $question['hint'] ?? null,
+                        $hint,
                         $question['points'] ?? 10,
                         $question['orderNumber']
                     ]);
@@ -622,13 +665,17 @@ function handleFillBlanksGame($db, $data) {
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
             
+            // Normalize hint: convert empty strings to null
+            $hint = isset($passage['hintText']) ? trim($passage['hintText']) : null;
+            $hint = ($hint === '') ? null : $hint;
+            
             $stmt->execute([
                 $gameId,
                 $passage['passageText'],
                 $data['difficulty'],
                 $data['timeLimit'] ?? null,
                 10, // Default points
-                $passage['hintText'] ?? null
+                $hint
             ]);
             
             $questionId = $db->lastInsertId();
@@ -716,6 +763,103 @@ function handleFillBlanksGame($db, $data) {
     } catch (Exception $e) {
         $db->rollBack();
         error_log("Error creating fill blanks game: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Handle saving jumbled sentences games
+ */
+function handleJumbledSentencesGame($db, $data) {
+    // Log received data for debugging
+    error_log("Jumbled sentences data received: " . json_encode($data));
+    
+    // Validate required fields
+    $required = ['gameName', 'gameType', 'gameCategory', 'difficulty', 'sentences'];
+    foreach ($required as $field) {
+        if (!isset($data[$field]) || (is_string($data[$field]) && trim($data[$field]) === '') || 
+            (is_array($data[$field]) && count($data[$field]) === 0)) {
+            $errorMsg = "Missing or empty field: $field. Received: " . (isset($data[$field]) ? json_encode($data[$field]) : 'not set');
+            error_log($errorMsg);
+            echo json_encode(['success' => false, 'message' => "Missing field: $field", 'debug' => $errorMsg]);
+            return;
+        }
+    }
+    
+    // Validate that sentences is an array and not empty
+    if (!is_array($data['sentences']) || count($data['sentences']) === 0) {
+        error_log("Sentences validation failed. Type: " . gettype($data['sentences']) . ", Count: " . (is_array($data['sentences']) ? count($data['sentences']) : 'N/A'));
+        echo json_encode(['success' => false, 'message' => "At least one sentence is required"]);
+        return;
+    }
+    
+    // Validate each sentence has required fields
+    foreach ($data['sentences'] as $index => $sentence) {
+        if (empty($sentence['sentenceText']) || trim($sentence['sentenceText']) === '') {
+            error_log("Sentence " . ($index + 1) . " is missing sentenceText");
+            echo json_encode(['success' => false, 'message' => "Sentence " . ($index + 1) . " is missing text"]);
+            return;
+        }
+    }
+    
+    $db->beginTransaction();
+    
+    try {
+        // Create game slug
+        $slug = generateUniqueSlug($db, $data['gameName']);
+        
+        // Insert game
+        $stmt = $db->prepare("
+            INSERT INTO custom_games 
+            (game_name, game_slug, game_type, game_category, description, icon_emoji, difficulty, time_limit, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $data['gameName'],
+            $slug,
+            $data['gameType'],
+            $data['gameCategory'],
+            $data['description'] ?? null,
+            $data['iconEmoji'] ?? '🔀',
+            $data['difficulty'],
+            $data['timeLimit'] ?? null,
+            1 // TODO: Get from session
+        ]);
+        
+        $gameId = $db->lastInsertId();
+        
+        // Insert sentences as questions
+        $stmt = $db->prepare("
+            INSERT INTO custom_game_questions 
+            (game_id, question_text, question_type, correct_answer, hint, points, order_number)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        foreach ($data['sentences'] as $sentence) {
+            $stmt->execute([
+                $gameId,
+                $sentence['sentenceText'],  // Store the correct sentence
+                'jumbled_sentence',          // Question type
+                $sentence['sentenceText'],  // Correct answer is also the sentence
+                $sentence['hint'] ?? null,
+                $sentence['points'] ?? 10,
+                $sentence['orderNumber']
+            ]);
+        }
+        
+        $db->commit();
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Jumbled sentences game created successfully',
+            'gameId' => $gameId,
+            'totalSentences' => count($data['sentences'])
+        ]);
+        
+    } catch (Exception $e) {
+        $db->rollBack();
+        error_log("Error creating jumbled sentences game: " . $e->getMessage());
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }

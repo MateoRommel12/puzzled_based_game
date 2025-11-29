@@ -19,7 +19,7 @@ class EmailConfig {
     
     // Application Settings
     const APP_NAME = 'Student Learning Games';
-    const APP_URL = 'http://localhost/ClusteringGame'; // Change to your domain
+    const APP_URL = 'https://olivedrab-guanaco-225657.hostingersite.com/ClusteringGame'; // Change to your domain
     
     // Email Templates
     const RESET_SUBJECT = 'Password Reset Request';

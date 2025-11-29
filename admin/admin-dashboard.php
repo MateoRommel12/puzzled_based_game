@@ -11,11 +11,12 @@
     <link rel="stylesheet" href="../styles/student-management.css">
 </head>
 <body>
-    <script src="../scripts/modal.js"></script>
-    <script src="../scripts/admin-auth.js"></script>
-    <script src="../scripts/admin-auth-check.js"></script>
-    <script src="../scripts/admin-check.js"></script>
-    <script src="../scripts/clustering.js"></script>
+    <script src="../scripts/modal.js?v=<?php echo time(); ?>"></script>
+    <script src="../scripts/admin-auth.js?v=<?php echo time(); ?>"></script>
+    <script src="../scripts/admin-auth-check.js?v=<?php echo time(); ?>"></script>
+    <script src="../scripts/admin-check.js?v=<?php echo time(); ?>"></script>
+    <script src="../scripts/clustering.js?v=<?php echo time(); ?>"></script>
+    <script src="../scripts/admin-dashboard.js?v=<?php echo time(); ?>"></script>
 
     <div class="admin-container">
         <header class="admin-header">
@@ -74,8 +75,8 @@
 
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3>Game Popularity</h3>
-                    <div id="gamePopularityChart" class="chart-container"></div>
+                    <h3>Custom Games</h3>
+                    <div id="customGamesChart" class="chart-container"></div>
                 </div>
 
                 <div class="chart-card">
@@ -106,6 +107,8 @@
                             <th>Games Played</th>
                             <th>Literacy Progress</th>
                             <th>Math Progress</th>
+                            <th>Total Hints Used</th>
+                            <th>Total Time Consumed</th>
                             <th>Performance Level</th>
                             <th>Actions</th>
                         </tr>
@@ -228,7 +231,6 @@
                             <button class="leaderboard-type-btn active" data-type="overall">Overall</button>
                             <button class="leaderboard-type-btn" data-type="literacy">Literacy</button>
                             <button class="leaderboard-type-btn" data-type="math">Math</button>
-                            <button class="leaderboard-type-btn" data-type="recent">Recent</button>
                         </div>
                         <div class="leaderboard-actions">
                             <button class="refresh-btn" id="refreshLeaderboard" title="Refresh Leaderboard">

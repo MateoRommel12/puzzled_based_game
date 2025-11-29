@@ -1,7 +1,7 @@
 // Admin Dashboard Logic - Backend Integration
 
 // Always use absolute path from site root
-const API_URL = "/ClusteringGame/api/admin-dashboard.php"
+const DASHBOARD_API_URL = "/ClusteringGame/api/admin-dashboard.php"
 
 // Initialize admin info
 document.addEventListener("DOMContentLoaded", () => {
@@ -54,7 +54,7 @@ function setupTabNavigation() {
 // Load Dashboard Data
 async function loadDashboardData() {
   try {
-    const response = await fetch(`${API_URL}?action=overview`)
+    const response = await fetch(`${DASHBOARD_API_URL}?action=overview`)
     const result = await response.json()
 
     if (result.success) {
@@ -65,7 +65,7 @@ async function loadDashboardData() {
       document.getElementById("activeToday").textContent = result.overview.activeToday
 
   // Create charts
-      createGamePopularityChart(result.gamePopularity)
+      createCustomGamesChart(result.customGames)
       createPerformanceChart(result.performanceDistribution)
     }
   } catch (error) {
@@ -76,7 +76,7 @@ async function loadDashboardData() {
 // Load Students Table
 async function loadStudentsTable(searchTerm = "", filterLevel = "all") {
   try {
-    let url = `${API_URL}?action=students`
+    let url = `${DASHBOARD_API_URL}?action=students`
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`
     if (filterLevel !== "all") url += `&filter=${filterLevel}`
 
@@ -88,7 +88,7 @@ async function loadStudentsTable(searchTerm = "", filterLevel = "all") {
   tbody.innerHTML = ""
 
       if (result.students.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;">No students found</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;">No students found</td></tr>'
         return
       }
 
@@ -102,6 +102,20 @@ async function loadStudentsTable(searchTerm = "", filterLevel = "all") {
             ? "medium-perf"
             : "low-perf"
 
+    // Format time consumed (seconds to readable format)
+    const totalSeconds = parseInt(student.total_time_consumed || 0)
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+    let timeFormatted = ''
+    if (hours > 0) {
+      timeFormatted = `${hours}h ${minutes}m`
+    } else if (minutes > 0) {
+      timeFormatted = `${minutes}m ${seconds}s`
+    } else {
+      timeFormatted = `${seconds}s`
+    }
+
     row.innerHTML = `
           <td>${escapeHtml(student.full_name)}</td>
           <td>${escapeHtml(student.email)}</td>
@@ -109,6 +123,8 @@ async function loadStudentsTable(searchTerm = "", filterLevel = "all") {
           <td>${student.games_played || 0}</td>
           <td>${Math.round(student.literacy_progress || 0)}%</td>
           <td>${Math.round(student.math_progress || 0)}%</td>
+          <td>${student.total_hints_used || 0}</td>
+          <td>${timeFormatted}</td>
           <td><span class="perf-badge ${performanceClass}">${
           student.performance_level || "low"
         }</span></td>
@@ -153,7 +169,7 @@ async function loadClusteringData() {
       </div>
     `
 
-    const response = await fetch(`${API_URL}?action=clustering`)
+    const response = await fetch(`${DASHBOARD_API_URL}?action=clustering`)
     const result = await response.json()
 
     if (result.success) {
@@ -292,7 +308,7 @@ async function loadClusteringData() {
 // View Student Details
 async function viewStudentDetails(userId) {
   try {
-    const response = await fetch(`${API_URL}?action=student-details&userId=${userId}`)
+    const response = await fetch(`${DASHBOARD_API_URL}?action=student-details&userId=${userId}`)
     const result = await response.json()
 
     if (result.success) {
@@ -333,39 +349,74 @@ function setupTableControls() {
   }
 }
 
-// Create Game Popularity Chart
-function createGamePopularityChart(data) {
-  const container = document.getElementById("gamePopularityChart")
-  if (!container || !data) return
+// Create Custom Games Chart
+function createCustomGamesChart(data) {
+  const container = document.getElementById("customGamesChart")
+  if (!container) return
 
   container.innerHTML = ""
 
-  const gameNames = {
-    word_scramble: "Word Scramble",
-    reading_comprehension: "Reading Comprehension",
-    number_puzzle: "Number Puzzle",
-    math_challenge: "Math Challenge",
-    recipe_calculator: "Recipe Calculator",
+  if (!data || data.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: rgba(255, 255, 255, 0.7);">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🎮</div>
+        <p style="margin: 0;">No custom games created yet</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">Create your first game in the Custom Games tab</p>
+      </div>
+    `
+    return
   }
 
-  const maxPlays = Math.max(...data.map((d) => d.plays || 0))
-
+  // Display custom games in a list
   data.forEach((game) => {
-    const bar = document.createElement("div")
-    bar.className = "chart-bar"
-    bar.style.cssText = "margin: 10px 0;"
+    const gameCard = document.createElement("div")
+    gameCard.style.cssText = `
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+    `
+    gameCard.onmouseenter = () => {
+      gameCard.style.background = "rgba(255, 255, 255, 0.08)"
+      gameCard.style.transform = "translateY(-2px)"
+    }
+    gameCard.onmouseleave = () => {
+      gameCard.style.background = "rgba(255, 255, 255, 0.05)"
+      gameCard.style.transform = "translateY(0)"
+    }
 
-    const percentage = maxPlays > 0 ? (game.plays / maxPlays) * 100 : 0
+    const typeBadge = game.game_type === 'literacy' 
+      ? '<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Literacy</span>'
+      : '<span style="background: rgba(139, 92, 246, 0.2); color: #8b5cf6; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Math</span>'
 
-    bar.innerHTML = `
-      <div style="margin-bottom: 5px; font-weight: bold;">${gameNames[game.game_type] || game.game_type}</div>
-      <div style="background: #e0e0e0; border-radius: 4px; overflow: hidden;">
-        <div style="background: linear-gradient(90deg, #3B82F6, #8B5CF6); height: 30px; width: ${percentage}%; display: flex; align-items: center; padding-left: 10px; color: white; font-weight: bold;">
-          ${game.plays} plays
-            </div>
-            </div>
-        `
-    container.appendChild(bar)
+    const difficultyColors = {
+      'easy': '#10b981',
+      'medium': '#f59e0b',
+      'hard': '#ef4444'
+    }
+    const difficultyColor = difficultyColors[game.difficulty] || '#999'
+
+    gameCard.innerHTML = `
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="font-size: 2rem; line-height: 1;">${game.icon_emoji || '🎮'}</div>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <h4 style="margin: 0; color: #fff; font-size: 1rem; font-weight: 600;">${escapeHtml(game.game_name)}</h4>
+            ${typeBadge}
+            <span style="background: rgba(255, 255, 255, 0.1); color: ${difficultyColor}; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: capitalize;">${game.difficulty}</span>
+          </div>
+          ${game.description ? `<p style="margin: 0 0 8px 0; color: rgba(255, 255, 255, 0.7); font-size: 0.85rem;">${escapeHtml(game.description)}</p>` : ''}
+          <div style="display: flex; gap: 16px; color: rgba(255, 255, 255, 0.6); font-size: 0.8rem;">
+            <span>📝 ${game.total_questions || 0} questions</span>
+            <span>👥 ${game.play_count || 0} plays</span>
+            <span>📅 ${new Date(game.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </div>
+    `
+    container.appendChild(gameCard)
   })
 }
 
@@ -419,7 +470,7 @@ function escapeHtml(text) {
 // Load Custom Games
 async function loadCustomGames() {
   try {
-    const response = await fetch("/ClusteringGame/api/custom-games.php")
+    const response = await fetch("../api/custom-games.php")
     const result = await response.json()
 
     const gamesList = document.getElementById("customGamesList")
@@ -510,7 +561,7 @@ async function deleteGame(gameId, gameName) {
   }
   
   try {
-    const response = await fetch(`/ClusteringGame/api/custom-games.php?gameId=${gameId}`, {
+    const response = await fetch(`../api/custom-games.php?gameId=${gameId}`, {
       method: 'DELETE'
     })
     
@@ -531,34 +582,70 @@ async function deleteGame(gameId, gameName) {
 // Clustering Functions
 async function loadClusteringStatus() {
   try {
-    const response = await fetch('/ClusteringGame/api/clustering.php?action=status')
+    const response = await fetch('../api/clustering.php?action=status')
     const result = await response.json()
     
+    // Update status cards
+    const lastClusteringTime = document.getElementById('lastClusteringTime')
+    const newGamesCount = document.getElementById('newGamesCount')
+    const autoClusteringStatus = document.getElementById('autoClusteringStatus')
+    
     if (result.success) {
-      const status = result.status
-      
-      // Update status cards
-      const lastClusteringTime = document.getElementById('lastClusteringTime')
-      const newGamesCount = document.getElementById('newGamesCount')
-      const autoClusteringStatus = document.getElementById('autoClusteringStatus')
-      
+      // Service is online - show detailed information
       if (lastClusteringTime) {
-        lastClusteringTime.textContent = status.last_clustering 
-          ? new Date(status.last_clustering).toLocaleString() 
+        lastClusteringTime.textContent = result.last_clustering 
+          ? new Date(result.last_clustering).toLocaleString() 
           : 'Never'
       }
       
       if (newGamesCount) {
-        newGamesCount.textContent = status.new_games_since_last || 0
+        newGamesCount.textContent = result.new_games_since_last || 0
       }
       
       if (autoClusteringStatus) {
-        autoClusteringStatus.textContent = status.should_run ? 'Will run soon' : 'Up to date'
-        autoClusteringStatus.style.color = status.should_run ? '#ff6b35' : '#28a745'
+        if (result.should_run) {
+          autoClusteringStatus.textContent = 'Will run soon'
+          autoClusteringStatus.style.color = '#ff6b35'
+        } else {
+          autoClusteringStatus.textContent = 'Up to date'
+          autoClusteringStatus.style.color = '#28a745'
+        }
+      }
+    } else {
+      // Service is offline or error
+      if (lastClusteringTime) {
+        lastClusteringTime.textContent = 'Service Offline'
+      }
+      
+      if (newGamesCount) {
+        newGamesCount.textContent = 'N/A'
+      }
+      
+      if (autoClusteringStatus) {
+        autoClusteringStatus.textContent = 'Service Unavailable'
+        autoClusteringStatus.style.color = '#dc3545'
       }
     }
   } catch (error) {
     console.error('Error loading clustering status:', error)
+    
+    // Update UI to show error state
+    const lastClusteringTime = document.getElementById('lastClusteringTime')
+    const newGamesCount = document.getElementById('newGamesCount')
+    const autoClusteringStatus = document.getElementById('autoClusteringStatus')
+    
+    if (lastClusteringTime) {
+      lastClusteringTime.textContent = 'Error'
+    }
+    
+    if (newGamesCount) {
+      newGamesCount.textContent = 'N/A'
+    }
+    
+    if (autoClusteringStatus) {
+      autoClusteringStatus.textContent = 'Connection Error'
+      autoClusteringStatus.style.color = '#dc3545'
+    }
   }
 }
 
@@ -577,7 +664,7 @@ async function runManualClustering() {
       Running Clustering...
     `
     
-    const response = await fetch('/ClusteringGame/api/clustering.php?action=run-manual')
+    const response = await fetch('../api/clustering.php?action=run')
     const result = await response.json()
     
     if (result.success) {

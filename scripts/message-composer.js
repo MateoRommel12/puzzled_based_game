@@ -205,6 +205,9 @@ class MessageComposerGame {
     this.sessionStartTs = null;
     this.timerInterval = null;
     this.elapsedSeconds = 0;
+    // Hint tracking
+    this.hintsUsed = 0;
+    this.currentMessageHintShown = false;
   }
 
   shuffleArray(array) {
@@ -224,6 +227,9 @@ class MessageComposerGame {
     const messageContent = document.getElementById("messageContent");
     const messageType = document.getElementById("messageType");
   
+    // Reset hint tracking for new message
+    this.currentMessageHintShown = false;
+  
     // Update message type badge
     messageType.textContent = `${this.getTypeEmoji(message.type)} ${message.messageType}`;
     messageType.style.background = this.getTypeColor(message.type);
@@ -239,9 +245,17 @@ class MessageComposerGame {
       </div>
       <p class="message-question">${message.question}</p>
       <div class="options-list" id="optionsList"></div>
-      <button class="hint-button" onclick="game.showExplanation()">💡 Show Explanation</button>
+      <button class="hint-button" id="hintButton">💡 Show Explanation</button>
       <div class="explanation-display" id="explanationDisplay" style="display:none;"></div>
     `;
+  
+    // Attach hint button event listener with proper context
+    const hintButton = document.getElementById("hintButton");
+    if (hintButton) {
+      hintButton.addEventListener('click', () => {
+        this.showExplanation(true);
+      });
+    }
   
     // Display options - SHUFFLE THEM HERE!
     const optionsList = document.getElementById("optionsList");
@@ -293,9 +307,16 @@ class MessageComposerGame {
     return colors[type] || "linear-gradient(135deg, #667eea, #764ba2)";
   }
 
-  showExplanation() {
+  showExplanation(userInitiated = false) {
     const message = this.getCurrentMessage();
     const explanationDisplay = document.getElementById("explanationDisplay");
+    
+    // Only track hint if user clicked the button (not auto-shown on wrong answer)
+    if (userInitiated && !this.currentMessageHintShown) {
+      this.hintsUsed++;
+      this.currentMessageHintShown = true;
+    }
+    
     explanationDisplay.textContent = `💡 ${message.explanation}`;
     explanationDisplay.style.display = "block";
     this.score = Math.max(0, this.score - 2);
@@ -382,13 +403,16 @@ class MessageComposerGame {
 
     // Save to database
     if (window.saveGameResult) {
+      // Ensure hintsUsed is always a number
+      const hintsUsedValue = Number(this.hintsUsed) || 0;
+      
       const gameData = {
         score: this.score,
         difficulty: "medium",
         questionsAnswered: this.totalAttempts,
         correctAnswers: this.correctAnswers,
         accuracy: accuracy,
-        hintsUsed: 0,
+        hintsUsed: hintsUsedValue,
         timeTaken: this.elapsedSeconds,
       };
       window.saveGameResult("message-composer", gameData);

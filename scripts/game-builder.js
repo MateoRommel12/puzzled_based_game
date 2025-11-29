@@ -1,24 +1,63 @@
 // Game Builder Logic
+console.log('game-builder.js loaded!');
+
 let questionCount = 0;
 let fillBlanksPassageCount = 0;
 let isEditMode = false;
 let editGameId = null;
 
+// Filter category options based on learning type
+function filterCategoryOptions() {
+    const learningType = document.getElementById('gameType').value;
+    const gameCategorySelect = document.getElementById('gameCategory');
+    const allOptions = gameCategorySelect.querySelectorAll('option');
+    
+    // Show/hide options based on learning type
+    allOptions.forEach(option => {
+        const value = option.value;
+        
+        if (!value) {
+            // Keep the "Select category..." option visible
+            return;
+        }
+        
+        if (learningType === 'literacy') {
+            // Hide math challenge for literacy
+            option.style.display = value === 'math' ? 'none' : '';
+        } else if (learningType === 'math') {
+            // Hide fill in the blanks for math
+            option.style.display = value === 'fill_blanks' ? 'none' : '';
+        } else {
+            // Show all if no learning type selected
+            option.style.display = '';
+        }
+    });
+}
+
 // Toggle game type specific fields
 function toggleGameTypeSpecificFields() {
     const gameCategory = document.getElementById('gameCategory').value;
     const fillBlanksSection = document.getElementById('fillBlanksSection');
+    const jumbledSentencesSection = document.getElementById('jumbledSentencesSection');
     const questionsSection = document.getElementById('questionsSection');
+    
+    // Hide all sections first
+    if (fillBlanksSection) fillBlanksSection.style.display = 'none';
+    if (jumbledSentencesSection) jumbledSentencesSection.style.display = 'none';
+    if (questionsSection) questionsSection.style.display = 'none';
     
     if (gameCategory === 'fill_blanks') {
         fillBlanksSection.style.display = 'block';
-        questionsSection.style.display = 'none';
         
-        // Completely remove any existing question items for fill-blanks
+        // Clear other sections
         const questionsList = document.getElementById('questionsList');
         if (questionsList) {
-            questionsList.innerHTML = ''; // Clear all questions
-            questionCount = 0; // Reset counter
+            questionsList.innerHTML = '';
+            questionCount = 0;
+        }
+        const jumbledList = document.getElementById('jumbledSentencesList');
+        if (jumbledList) {
+            jumbledList.innerHTML = '';
         }
         
         // Add first fill-blanks passage if none exist
@@ -26,15 +65,38 @@ function toggleGameTypeSpecificFields() {
         if (fillBlanksPassagesList && fillBlanksPassagesList.children.length === 0) {
             addFillBlanksPassage();
         }
-    } else {
-        fillBlanksSection.style.display = 'none';
-        questionsSection.style.display = 'block';
+    } else if (gameCategory === 'jumbled_sentences') {
+        jumbledSentencesSection.style.display = 'block';
         
-        // Clear fill-blanks passages
+        // Clear other sections
+        const questionsList = document.getElementById('questionsList');
+        if (questionsList) {
+            questionsList.innerHTML = '';
+            questionCount = 0;
+        }
         const fillBlanksPassagesList = document.getElementById('fillBlanksPassagesList');
         if (fillBlanksPassagesList) {
             fillBlanksPassagesList.innerHTML = '';
             fillBlanksPassageCount = 0;
+        }
+        
+        // Add first jumbled sentence if none exist
+        const jumbledList = document.getElementById('jumbledSentencesList');
+        if (jumbledList && jumbledList.children.length === 0) {
+            addJumbledSentence();
+        }
+    } else {
+        questionsSection.style.display = 'block';
+        
+        // Clear other sections
+        const fillBlanksPassagesList = document.getElementById('fillBlanksPassagesList');
+        if (fillBlanksPassagesList) {
+            fillBlanksPassagesList.innerHTML = '';
+            fillBlanksPassageCount = 0;
+        }
+        const jumbledList = document.getElementById('jumbledSentencesList');
+        if (jumbledList) {
+            jumbledList.innerHTML = '';
         }
         
         // Re-enable question validation for regular games
@@ -140,6 +202,71 @@ function renumberFillBlanksPassages() {
     });
 }
 
+// Add a new jumbled sentence
+let jumbledSentenceCount = 0;
+
+function addJumbledSentence() {
+    jumbledSentenceCount++;
+    const sentencesList = document.getElementById("jumbledSentencesList");
+    
+    if (!sentencesList) {
+        return;
+    }
+    
+    const sentenceItem = document.createElement("div");
+    sentenceItem.className = "question-item";
+    sentenceItem.id = `jumbled-sentence-${jumbledSentenceCount}`;
+    
+    sentenceItem.innerHTML = `
+        <div class="question-header">
+            <span class="question-number">Sentence ${jumbledSentenceCount}</span>
+            <button type="button" class="remove-btn" onclick="removeJumbledSentence(${jumbledSentenceCount})">
+                Remove
+            </button>
+        </div>
+
+        <div class="form-group">
+            <label for="sentenceText-${jumbledSentenceCount}">Correct Sentence *</label>
+            <textarea id="sentenceText-${jumbledSentenceCount}" class="sentence-text" required placeholder="Type the correct sentence here. Example: The cat sat on the mat."></textarea>
+            <small style="color: #888; margin-top: 0.5rem; display: block;">
+                💡 Enter the complete correct sentence. Words will be automatically scrambled for the player.
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="hint-${jumbledSentenceCount}">Hint (Optional)</label>
+            <input type="text" id="hint-${jumbledSentenceCount}" class="hint-text" placeholder="e.g., Think about subject-verb-object order">
+        </div>
+
+        <div class="form-group">
+            <label for="points-${jumbledSentenceCount}">Points</label>
+            <input type="number" id="points-${jumbledSentenceCount}" class="points-input" value="10" min="1" max="100">
+        </div>
+    `;
+    
+    sentencesList.appendChild(sentenceItem);
+}
+
+// Remove a jumbled sentence
+function removeJumbledSentence(id) {
+    const sentence = document.getElementById(`jumbled-sentence-${id}`);
+    if (sentence) {
+        sentence.remove();
+        renumberJumbledSentences();
+    }
+}
+
+// Renumber jumbled sentences after deletion
+function renumberJumbledSentences() {
+    const sentences = document.querySelectorAll("#jumbledSentencesList .question-item");
+    sentences.forEach((s, index) => {
+        const numberSpan = s.querySelector(".question-number");
+        if (numberSpan) {
+            numberSpan.textContent = `Sentence ${index + 1}`;
+        }
+    });
+}
+
 // Preview a specific fill-blanks passage
 async function previewFillBlanksPassage(passageId) {
     const passageText = document.getElementById(`passageText-${passageId}`).value;
@@ -177,7 +304,7 @@ async function saveFillBlanksGame(gameData) {
         // Get CSRF token from form
         const csrfToken = document.querySelector('input[name="csrf_token"]')?.value;
         
-        const response = await fetch('../api/custom-games.php', {
+        const response = await fetch('/ClusteringGame/api/custom-games.php', {
             method: method,
             headers: {
                 'Content-Type': 'application/json',
@@ -200,6 +327,86 @@ async function saveFillBlanksGame(gameData) {
     } catch (error) {
         console.error('Error saving fill in the blanks game:', error);
         await errorModal('Failed to save game. Please try again.', 'Network Error');
+    }
+}
+
+async function saveJumbledSentencesGame(gameData) {
+    console.log('saveJumbledSentencesGame called with:', gameData);
+    try {
+        // Validate required fields before sending
+        console.log('Validating game data...');
+        if (!gameData.gameName || !gameData.gameName.trim()) {
+            console.error('Validation failed: Missing game name');
+            await errorModal('Please enter a game name.', 'Validation Error');
+            return;
+        }
+        
+        if (!gameData.gameType || !gameData.gameType.trim()) {
+            await errorModal('Please select a learning type (Math or Literacy).', 'Validation Error');
+            return;
+        }
+        
+        if (!gameData.difficulty || !gameData.difficulty.trim()) {
+            await errorModal('Please select a difficulty level.', 'Validation Error');
+            return;
+        }
+        
+        if (!gameData.sentences || gameData.sentences.length === 0) {
+            await errorModal('Please add at least one jumbled sentence.', 'Validation Error');
+            return;
+        }
+        
+        const method = isEditMode ? 'PUT' : 'POST';
+        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value;
+        
+        console.log('Sending request to API...', {
+            method: method,
+            url: '/ClusteringGame/api/custom-games.php',
+            hasToken: !!csrfToken,
+            dataSize: JSON.stringify(gameData).length
+        });
+        
+        const response = await fetch('/ClusteringGame/api/custom-games.php', {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify(gameData)
+        });
+        
+        console.log('Response received:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok
+        });
+        
+        // Check if response is OK before parsing JSON
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('HTTP error response:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}, body: ${errorText.substring(0, 200)}`);
+        }
+        
+        const result = await response.json();
+        console.log('API response:', result);
+        
+        if (result.success) {
+            await successModal(
+                isEditMode ? 'Jumbled Sentences game updated successfully!' : 'Jumbled Sentences game saved successfully!',
+                'Success'
+            );
+            window.location.href = 'admin-dashboard.php';
+        } else {
+            const errorMsg = result.message || 'Unknown error occurred';
+            console.error('Backend error:', errorMsg);
+            console.error('Game data sent:', gameData);
+            await errorModal('Error: ' + errorMsg, 'Error');
+        }
+    } catch (error) {
+        console.error('Error saving jumbled sentences game:', error);
+        console.error('Game data:', gameData);
+        await errorModal('Failed to save game: ' + error.message, 'Network Error');
     }
 }
 
@@ -426,11 +633,15 @@ async function loadGameForEdit(gameId) {
 
 // Initialize page on load
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOMContentLoaded - Initializing game builder...');
   
   // Make functions globally accessible
+  window.filterCategoryOptions = filterCategoryOptions;
   window.addFillBlanksPassage = addFillBlanksPassage;
   window.removeFillBlanksPassage = removeFillBlanksPassage;
   window.previewFillBlanksPassage = previewFillBlanksPassage;
+  window.addJumbledSentence = addJumbledSentence;
+  window.removeJumbledSentence = removeJumbledSentence;
   window.toggleGameTypeSpecificFields = toggleGameTypeSpecificFields;
   window.addQuestion = addQuestion;
   window.removeQuestion = removeQuestion;
@@ -444,16 +655,44 @@ document.addEventListener('DOMContentLoaded', () => {
     isEditMode = true;
     loadGameForEdit(editGameId);
   } else {
-  // Initialize the form based on current game category
-  toggleGameTypeSpecificFields();
+    // Initialize the form based on current game category
+    // Only show sections if category is already selected
+    const gameCategory = document.getElementById('gameCategory');
+    if (gameCategory && gameCategory.value) {
+      toggleGameTypeSpecificFields();
+    } else {
+      // Hide all sections if no category selected yet
+      const fillBlanksSection = document.getElementById('fillBlanksSection');
+      const jumbledSentencesSection = document.getElementById('jumbledSentencesSection');
+      const questionsSection = document.getElementById('questionsSection');
+      if (fillBlanksSection) fillBlanksSection.style.display = 'none';
+      if (jumbledSentencesSection) jumbledSentencesSection.style.display = 'none';
+      if (questionsSection) questionsSection.style.display = 'none';
+    }
+    
+    // Only add a question for regular quiz games (not fill-blanks or jumbled-sentences)
+    if (gameCategory && 
+        gameCategory.value !== 'fill_blanks' && 
+        gameCategory.value !== 'jumbled_sentences' &&
+        gameCategory.value !== '') {
+      addQuestion();
+    }
   }
-});
-
-// Handle form submission
-document.getElementById("gameBuilderForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
   
-  const gameCategory = document.getElementById("gameCategory").value;
+  // Handle form submission
+  const form = document.getElementById("gameBuilderForm");
+  console.log('Form element found:', !!form);
+  
+  if (form) {
+    console.log('Attaching form submit listener...');
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      console.log('=== FORM SUBMITTED ===');
+      console.log('Form submitted!');
+      const gameCategory = document.getElementById("gameCategory").value;
+      console.log('Game category:', gameCategory);
   
   // Handle fill in the blanks games differently
   if (gameCategory === 'fill_blanks') {
@@ -540,6 +779,107 @@ document.getElementById("gameBuilderForm")?.addEventListener("submit", async (e)
     return;
   }
   
+  // Handle jumbled sentences games
+  if (gameCategory === 'jumbled_sentences') {
+    console.log('Processing jumbled sentences game...');
+    const gameName = document.getElementById("gameName").value.trim();
+    const gameType = document.getElementById("gameType").value;
+    const difficultyValue = document.getElementById("difficulty").value;
+    const timeLimit = document.getElementById("timeLimit").value || null;
+    const iconEmoji = document.getElementById("iconEmoji").value || "🔀";
+    const description = document.getElementById("description").value || null;
+    
+    // Validate required fields first
+    if (!gameName || gameName === '') {
+      await errorModal('Please enter a game name.', 'Validation Error');
+      return;
+    }
+    
+    if (!gameType || gameType === '') {
+      await errorModal('Please select a learning type (Math or Literacy).', 'Validation Error');
+      return;
+    }
+    
+    if (!difficultyValue || difficultyValue === '') {
+      await errorModal('Please select a difficulty level.', 'Validation Error');
+      return;
+    }
+    
+    // Collect all jumbled sentences
+    const sentenceItems = document.querySelectorAll("#jumbledSentencesList .question-item");
+    
+    if (sentenceItems.length === 0) {
+      await errorModal("Please add at least one jumbled sentence!", 'Validation Error');
+      return;
+    }
+    
+    const sentences = [];
+    let validationFailed = false;
+    
+    for (let index = 0; index < sentenceItems.length; index++) {
+      const item = sentenceItems[index];
+      const sentenceId = item.id.split('-').pop();
+      const sentenceTextEl = document.getElementById(`sentenceText-${sentenceId}`);
+      const hintEl = document.getElementById(`hint-${sentenceId}`);
+      const pointsEl = document.getElementById(`points-${sentenceId}`);
+      
+      if (!sentenceTextEl) {
+        console.error(`Sentence ${index + 1}: Could not find sentenceText-${sentenceId} element`);
+        await errorModal(`Sentence ${index + 1}: Form element not found. Please refresh and try again.`, 'Validation Error');
+        validationFailed = true;
+        break;
+      }
+      
+      const sentenceText = sentenceTextEl.value ? sentenceTextEl.value.trim() : '';
+      const hint = hintEl ? (hintEl.value ? hintEl.value.trim() : null) : null;
+      const points = pointsEl ? (parseInt(pointsEl.value) || 10) : 10;
+      
+      if (!sentenceText || sentenceText === '') {
+        await errorModal(`Sentence ${index + 1}: Please enter a sentence.`, 'Validation Error');
+        validationFailed = true;
+        break;
+      }
+      
+      sentences.push({
+        orderNumber: index + 1,
+        sentenceText: sentenceText,
+        hint: hint,
+        points: points
+      });
+    }
+    
+    if (validationFailed || sentences.length === 0) {
+      return;
+    }
+    
+    const gameData = {
+      gameName: gameName,
+      gameType: gameType,
+      gameCategory: gameCategory,
+      difficulty: difficultyValue,
+      timeLimit: timeLimit,
+      iconEmoji: iconEmoji,
+      description: description,
+      sentences: sentences
+    };
+    
+    if (isEditMode && editGameId) {
+      gameData.gameId = parseInt(editGameId);
+    }
+    
+    console.log('Sending jumbled sentences game data:', gameData);
+    console.log('Game data validation:', {
+      hasGameName: !!gameData.gameName,
+      hasGameType: !!gameData.gameType,
+      hasGameCategory: !!gameData.gameCategory,
+      hasDifficulty: !!gameData.difficulty,
+      hasSentences: !!gameData.sentences,
+      sentencesCount: gameData.sentences ? gameData.sentences.length : 0
+    });
+    await saveJumbledSentencesGame(gameData);
+    return;
+  }
+  
   // Collect game data for regular games
   const difficultyValue = document.getElementById("difficulty").value;
   
@@ -568,12 +908,15 @@ document.getElementById("gameBuilderForm")?.addEventListener("submit", async (e)
   // Collect questions
   const questionItems = document.querySelectorAll(".question-item");
   questionItems.forEach((item, index) => {
+    const hintEl = item.querySelector(".question-hint");
+    const hint = hintEl ? (hintEl.value ? hintEl.value.trim() : null) : null;
+    
     const question = {
       orderNumber: index + 1,
       questionType: item.querySelector(".question-type").value,
       questionText: item.querySelector(".question-text").value,
       correctAnswer: item.querySelector(".correct-answer").value,
-      hint: item.querySelector(".question-hint").value,
+      hint: hint,
       points: parseInt(item.querySelector(".question-points").value) || 10,
       optionA: item.querySelector(".option-a")?.value || null,
       optionB: item.querySelector(".option-b")?.value || null,
@@ -622,14 +965,10 @@ document.getElementById("gameBuilderForm")?.addEventListener("submit", async (e)
       "Network Error"
     );
   }
-});
-
-// Add first question on page load
-window.addEventListener("DOMContentLoaded", () => {
-  // Only add a question for non-fill-blanks games
-  const gameCategory = document.getElementById('gameCategory');
-  if (gameCategory && gameCategory.value !== 'fill_blanks') {
-    addQuestion();
+    });
+  } else {
+    console.error('Form not found! Cannot attach submit handler.');
   }
 });
+
 

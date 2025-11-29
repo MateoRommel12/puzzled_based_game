@@ -17,7 +17,33 @@ class GameDataManager {
     try {
       const fullUrl = `${this.apiUrl}?action=get-stats`
       const response = await fetch(fullUrl)
-      const result = await response.json()
+      
+      // Check if response is ok
+      if (!response.ok) {
+        if (response.status === 401) {
+          // User not logged in
+          console.warn('User not logged in, redirecting to login page')
+          window.location.href = 'login.php'
+          return null
+        }
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      // Check if response has content
+      const text = await response.text()
+      if (!text.trim()) {
+        throw new Error('Empty response from server')
+      }
+      
+      // Try to parse JSON
+      let result
+      try {
+        result = JSON.parse(text)
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError)
+        console.error('Response text:', text)
+        throw new Error('Invalid JSON response from server')
+      }
 
       if (result.success) {
         // Transform backend data to match frontend structure
@@ -89,6 +115,11 @@ class GameDataManager {
         body: JSON.stringify(gameData),
       })
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        return { success: false, message: `HTTP ${response.status}: ${errorText}` }
+      }
+
       const result = await response.json()
       
       if (result.success) {
@@ -96,12 +127,11 @@ class GameDataManager {
         this.cachedData = null
         return result
       } else {
-        console.error("Error saving game session:", result.message)
         return { success: false, message: result.message }
       }
     } catch (error) {
       console.error("Network error saving game session:", error)
-      return { success: false, message: "Network error" }
+      return { success: false, message: "Network error: " + error.message }
     }
   }
 
@@ -327,6 +357,8 @@ async function saveGameResult(gameName, gameData) {
     "fill-blanks": "fill_blanks",
   }
 
+  const hintsUsedValue = typeof gameData.hintsUsed === 'number' ? gameData.hintsUsed : (parseInt(gameData.hintsUsed) || 0);
+  
   const sessionData = {
     gameType: gameTypeMap[gameName] || gameName, // Use mapping if available, otherwise use the gameName directly
     score: gameData.score || 0,
@@ -336,7 +368,7 @@ async function saveGameResult(gameName, gameData) {
     correctAnswers: gameData.correctAnswers || 0,
     accuracy: gameData.accuracy || 0,
     streakCount: gameData.streakCount || 0,
-    hintsUsed: gameData.hintsUsed || 0,
+    hintsUsed: hintsUsedValue,
     sessionData: gameData.extra || null,
   }
 

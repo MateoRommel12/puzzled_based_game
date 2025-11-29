@@ -25,7 +25,7 @@ class ValidationMiddleware {
         'create_game' => [
             'gameName' => ['required', 'string', 'min:3', 'max:100'],
             'gameType' => ['required', 'string', 'in:literacy,math,logic'],
-            'gameCategory' => ['required', 'string', 'in:quiz,puzzle,word,fill_blanks,math,other'],
+            'gameCategory' => ['required', 'string', 'in:quiz,puzzle,word,fill_blanks,jumbled_sentences,math,other'],
             'difficulty' => ['required', 'string', 'in:easy,medium,hard'],
             'timeLimit' => ['nullable', 'string'],
             'description' => ['nullable', 'string', 'max:500'],

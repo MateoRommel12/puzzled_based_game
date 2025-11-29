@@ -94,7 +94,7 @@ class EmailManager {
      * Get HTML template for password reset email
      */
     private function getPasswordResetTemplate($userName, $resetToken) {
-        $resetUrl = EmailConfig::APP_URL . "/reset-password.php?token=" . $resetToken;
+        $resetUrl = rtrim(EmailConfig::APP_URL, '/') . '/reset-password.php?token=' . urlencode($resetToken);
         
         return "
         <!DOCTYPE html>
@@ -146,7 +146,7 @@ class EmailManager {
      * Get plain text template for password reset email
      */
     private function getPasswordResetTextTemplate($userName, $resetToken) {
-        $resetUrl = EmailConfig::APP_URL . "/reset-password.php?token=" . $resetToken;
+        $resetUrl = rtrim(EmailConfig::APP_URL, '/') . '/reset-password.php?token=' . urlencode($resetToken);
         
         return "
 Password Reset Request - Student Learning Games
@@ -172,7 +172,7 @@ This email was sent from an automated system. Please do not reply.
      * Log email in development mode (when email is not configured)
      */
     private function logEmailInDevelopment($userEmail, $userName, $resetToken) {
-        $resetUrl = EmailConfig::APP_URL . "/reset-password.php?token=" . $resetToken;
+        $resetUrl = rtrim(EmailConfig::APP_URL, '/') . '/reset-password.php?token=' . urlencode($resetToken);
         
         $logMessage = "
 === PASSWORD RESET EMAIL (DEVELOPMENT MODE) ===
