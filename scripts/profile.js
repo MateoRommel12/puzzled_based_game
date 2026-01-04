@@ -203,7 +203,6 @@ class ProfileManager {
                     <div class="profile-tabs">
                         <button class="profile-tab active" data-tab="profile">Profile Info</button>
                         <button class="profile-tab" data-tab="password">Change Password</button>
-                        <button class="profile-tab" data-tab="stats">Statistics</button>
                     </div>
                     
                     <div class="profile-tab-content">
@@ -261,50 +260,6 @@ class ProfileManager {
                                     <button type="submit" class="btn-primary">Change Password</button>
                                 </div>
                             </form>
-                        </div>
-                        
-                        <!-- Statistics Tab -->
-                        <div id="statsTab" class="profile-tab-panel">
-                            <div class="stats-grid">
-                                <div class="stat-card">
-                                    <div class="stat-icon">🎮</div>
-                                    <div class="stat-info">
-                                        <div class="stat-label">Games Played</div>
-                                        <div class="stat-value">${this.profileData?.games_played || 0}</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="stat-card">
-                                    <div class="stat-icon">⭐</div>
-                                    <div class="stat-info">
-                                        <div class="stat-label">Total Score</div>
-                                        <div class="stat-value">${this.profileData?.total_score || 0}</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="stat-card">
-                                    <div class="stat-icon">📚</div>
-                                    <div class="stat-info">
-                                        <div class="stat-label">Literacy Progress</div>
-                                        <div class="stat-value">${Math.round(this.profileData?.literacy_progress || 0)}%</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="stat-card">
-                                    <div class="stat-icon">🔢</div>
-                                    <div class="stat-info">
-                                        <div class="stat-label">Math Progress</div>
-                                        <div class="stat-value">${Math.round(this.profileData?.math_progress || 0)}%</div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="performance-level">
-                                <h3>Performance Level</h3>
-                                <div class="performance-badge ${this.profileData?.performance_level || 'low'}">
-                                    ${this.getPerformanceLabel(this.profileData?.performance_level || 'low')}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>

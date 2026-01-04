@@ -55,6 +55,7 @@ class GameDataManager {
           totalScore: progress.total_score || 0,
           literacyProgress: progress.literacy_progress || 0,
           mathProgress: progress.math_progress || 0,
+          performanceLevel: progress.performance_level || 'low',
           games: {
             "word-scramble": this.getGameData(gameStats, "word_scramble"),
             "reading-comprehension": this.getGameData(gameStats, "reading_comprehension"),
@@ -91,6 +92,7 @@ class GameDataManager {
       },
       literacyProgress: 0,
       mathProgress: 0,
+      performanceLevel: 'low',
     }
   }
 

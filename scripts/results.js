@@ -1,85 +1,5 @@
 // Results and Analytics Page Logic - Backend Integration
 
-const achievements = [
-  {
-    id: "first_game",
-    name: "Getting Started",
-    description: "Play your first game",
-    icon: "🎮",
-    condition: (data) => data.gamesPlayed >= 1,
-  },
-  {
-    id: "five_games",
-    name: "Dedicated Learner",
-    description: "Play 5 games",
-    icon: "📚",
-    condition: (data) => data.gamesPlayed >= 5,
-  },
-  {
-    id: "ten_games",
-    name: "Game Master",
-    description: "Play 10 games",
-    icon: "🏆",
-    condition: (data) => data.gamesPlayed >= 10,
-  },
-  {
-    id: "score_100",
-    name: "Century Club",
-    description: "Score 100+ points total",
-    icon: "💯",
-    condition: (data) => data.totalScore >= 100,
-  },
-  {
-    id: "score_500",
-    name: "High Achiever",
-    description: "Score 500+ points total",
-    icon: "⭐",
-    condition: (data) => data.totalScore >= 500,
-  },
-  {
-    id: "literacy_master",
-    name: "Word Wizard",
-    description: "Complete 50% literacy progress",
-    icon: "📖",
-    condition: (data) => data.literacyProgress >= 50,
-  },
-  {
-    id: "math_master",
-    name: "Math Genius",
-    description: "Complete 50% math progress",
-    icon: "🔢",
-    condition: (data) => data.mathProgress >= 50,
-  },
-  {
-    id: "all_games",
-    name: "Well Rounded",
-    description: "Play all 4 games",
-    icon: "🌟",
-    condition: (data) => {
-      return (
-        data.games["word-scramble"].plays > 0 &&
-        data.games["reading-comprehension"].plays > 0 &&
-        data.games["number-puzzle"].plays > 0 &&
-        data.games["math-challenge"].plays > 0
-      )
-    },
-  },
-  {
-    id: "perfect_literacy",
-    name: "Literacy Champion",
-    description: "Complete 100% literacy progress",
-    icon: "👑",
-    condition: (data) => data.literacyProgress >= 100,
-  },
-  {
-    id: "perfect_math",
-    name: "Math Champion",
-    description: "Complete 100% math progress",
-    icon: "🎯",
-    condition: (data) => data.mathProgress >= 100,
-  },
-]
-
 async function loadResults() {
   // Show loading state
   showLoading(true)
@@ -94,54 +14,66 @@ async function loadResults() {
   )}%`
   document.getElementById("mathProgress").textContent = `${Math.round(data.mathProgress)}%`
 
-  // Update game performance
-  updateGamePerformance("word-scramble", "wordScramble", data)
-  updateGamePerformance("reading-comprehension", "reading", data)
-  updateGamePerformance("number-puzzle", "numberPuzzle", data)
-  updateGamePerformance("math-challenge", "mathChallenge", data)
-
-  // Load achievements
-  loadAchievements(data)
+  // Update performance level
+  updatePerformanceLevel(data.performanceLevel || 'low')
 
   showLoading(false)
 }
 
-function updateGamePerformance(gameKey, elementPrefix, data) {
-  const gameData = data.games[gameKey]
-
-  const playsEl = document.getElementById(`${elementPrefix}Plays`)
-  const bestEl = document.getElementById(`${elementPrefix}Best`)
-  const totalEl = document.getElementById(`${elementPrefix}Total`)
-
-  if (playsEl) playsEl.textContent = gameData.plays
-  if (bestEl) bestEl.textContent = gameData.bestScore
-  if (totalEl) totalEl.textContent = gameData.totalScore
+function updatePerformanceLevel(level) {
+  const performanceLevelEl = document.getElementById("performanceLevel")
+  const performanceLabelEl = document.getElementById("performanceLabel")
+  const badgeIconEl = document.getElementById("badgeIcon")
+  const performanceDescEl = document.getElementById("performanceDescription")
+  const progressFillEl = document.getElementById("performanceProgressFill")
+  
+  if (performanceLevelEl && performanceLabelEl) {
+    // Remove existing performance level classes
+    performanceLevelEl.className = "performance-badge " + level
+    
+    // Set the label and icon
+    const levelData = {
+      'high': {
+        label: 'High Achiever',
+        icon: '🏆',
+        description: 'Excellent work! You\'re performing at a high level. Keep up the great progress!'
+      },
+      'medium': {
+        label: 'Average Performer',
+        icon: '📚',
+        description: 'You\'re doing well! Continue practicing to reach the next level.'
+      },
+      'low': {
+        label: 'Needs Support',
+        icon: '🎯',
+        description: 'Keep practicing to improve your skills! Every game helps you learn and grow.'
+      }
+    }
+    
+    const data = levelData[level] || levelData['low']
+    
+    if (badgeIconEl) {
+      badgeIconEl.textContent = data.icon
+    }
+    
+    if (performanceLabelEl) {
+      performanceLabelEl.textContent = data.label
+    }
+    
+    if (performanceDescEl) {
+      performanceDescEl.textContent = data.description
+    }
+    
+    // Update progress bar
+    if (progressFillEl) {
+      progressFillEl.className = "progress-fill " + level
+    }
+  }
 }
 
-function loadAchievements(data) {
-  const achievementsGrid = document.getElementById("achievementsGrid")
-  if (!achievementsGrid) return
-
-  achievementsGrid.innerHTML = ""
-
-  achievements.forEach((achievement) => {
-    const isUnlocked = achievement.condition(data)
-
-    const card = document.createElement("div")
-    card.className = `achievement-card ${isUnlocked ? "unlocked" : "locked"}`
-
-    card.innerHTML = `
-            <div class="achievement-icon">${achievement.icon}</div>
-            <div class="achievement-name">${achievement.name}</div>
-            <div class="achievement-desc">${achievement.description}</div>
-        `
-
-    achievementsGrid.appendChild(card)
-  })
-}
 
 function showLoading(show) {
-  const loadingElements = document.querySelectorAll(".stat-value, .perf-value")
+  const loadingElements = document.querySelectorAll(".stat-value")
   loadingElements.forEach((el) => {
     if (show) {
       el.textContent = "..."

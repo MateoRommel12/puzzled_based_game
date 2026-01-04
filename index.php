@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Learning Games - Clustering Platform</title>
-    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/main.css?v=<?php echo time(); ?>">
 </head>
 <body>
     <div class="container">
@@ -87,6 +87,7 @@
                 
                 <div class="games-grid" id="literacyGamesGrid">
                     <div class="game-card" data-game="shopping-list" style="border: 2px solid rgba(16, 185, 129, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon literacy">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="9" cy="21" r="1"></circle>
@@ -110,6 +111,7 @@
                     </div>
 
                     <div class="game-card" data-game="message-composer" style="border: 2px solid rgba(16, 185, 129, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon literacy">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -131,6 +133,7 @@
                     </div>
 
                     <div class="game-card" data-game="word-scramble" style="border: 2px solid rgba(59, 130, 246, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon literacy">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
@@ -154,6 +157,7 @@
                     </div>
 
                     <div class="game-card" data-game="reading-comprehension" style="border: 2px solid rgba(139, 92, 246, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon literacy">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
@@ -192,6 +196,7 @@
                 
                 <div class="games-grid" id="mathGamesGrid">
                     <div class="game-card" data-game="budget-manager" style="border: 2px solid rgba(16, 185, 129, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon math">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
@@ -214,6 +219,7 @@
                     </div>
 
                     <div class="game-card" data-game="recipe-calculator" style="border: 2px solid rgba(16, 185, 129, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon math">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path>
@@ -237,6 +243,7 @@
                     </div>
 
                     <div class="game-card" data-game="number-puzzle" style="border: 2px solid rgba(245, 158, 11, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon math">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"></circle>
@@ -259,6 +266,7 @@
                     </div>
 
                     <div class="game-card" data-game="math-challenge" style="border: 2px solid rgba(239, 68, 68, 0.3);">
+                        <span class="practice-badge">Practice Game</span>
                         <div class="game-icon math">
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M9 11H1l8-8 8 8h-8z"></path>

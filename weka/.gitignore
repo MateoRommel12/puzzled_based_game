@@ -1,0 +1,15 @@
+# Compiled Java classes
+*.class
+
+# ARFF files (temporary data files)
+arff/*.arff
+arff/*.csv
+
+# WEKA JAR (too large for git, download separately)
+weka.jar
+
+# IDE files
+*.iml
+.idea/
+.vscode/
+

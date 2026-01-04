@@ -71,7 +71,7 @@ function handleGetOverallLeaderboard($db) {
         LEFT JOIN student_progress sp ON u.user_id = sp.user_id
         WHERE u.is_active = TRUE
         ORDER BY sp.total_score DESC, sp.games_played DESC
-        LIMIT 50
+        LIMIT 10
     ");
     
     $stmt->execute();
@@ -104,7 +104,7 @@ function handleGetLiteracyLeaderboard($db) {
         LEFT JOIN student_progress sp ON u.user_id = sp.user_id
         WHERE u.is_active = TRUE AND sp.literacy_progress > 0
         ORDER BY sp.literacy_progress DESC, sp.total_score DESC
-        LIMIT 50
+        LIMIT 10
     ");
     
     $stmt->execute();
@@ -137,7 +137,7 @@ function handleGetMathLeaderboard($db) {
         LEFT JOIN student_progress sp ON u.user_id = sp.user_id
         WHERE u.is_active = TRUE AND sp.math_progress > 0
         ORDER BY sp.math_progress DESC, sp.total_score DESC
-        LIMIT 50
+        LIMIT 10
     ");
     
     $stmt->execute();
@@ -180,7 +180,7 @@ function handleGetRecentLeaderboard($db) {
         ) recent_scores ON u.user_id = recent_scores.user_id
         WHERE u.is_active = TRUE
         ORDER BY COALESCE(recent_scores.total_recent_score, 0) DESC, COALESCE(recent_scores.recent_games, 0) DESC
-        LIMIT 50
+        LIMIT 10
     ");
     
     $stmt->execute();

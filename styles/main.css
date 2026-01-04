@@ -297,9 +297,30 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-  animation: pulse-badge 2s ease-in-out infinite;
   z-index: 10;
+}
+
+.practice-badge {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  left: auto !important;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  pointer-events: none;
+  white-space: nowrap;
+  direction: ltr;
+  text-align: right;
+  margin: 0;
+  float: none;
 }
 
 @keyframes pulse-badge {

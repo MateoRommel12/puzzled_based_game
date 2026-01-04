@@ -189,6 +189,7 @@ function handleGetStudents($db) {
  */
 function handleGetClustering($db) {
     // Get current clustering results
+    // Recalculate overall_performance as average of literacy and math scores to ensure correctness
     $stmt = $db->query("
         SELECT 
             cr.cluster_number,
@@ -196,7 +197,7 @@ function handleGetClustering($db) {
             COUNT(cr.user_id) as student_count,
             AVG(cr.literacy_score) as avg_literacy,
             AVG(cr.math_score) as avg_math,
-            AVG(cr.overall_performance) as avg_performance
+            AVG((cr.literacy_score + cr.math_score) / 2) as avg_performance
         FROM clustering_results cr
         WHERE cr.is_current = 1
         GROUP BY cr.cluster_number, cr.cluster_label

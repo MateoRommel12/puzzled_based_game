@@ -4,12 +4,12 @@
  * This runs directly on your Hostinger server using PHP
  */
 
-function runLocalClustering() {
+function runLocalClustering($category = 'all') {
     try {
         $db = getDBConnection();
         
-        // Get student data
-        $students = getStudentData($db);
+        // Get student data filtered by category
+        $students = getStudentData($db, $category);
         
         if (count($students) < 3) {
             echo json_encode([
@@ -19,19 +19,22 @@ function runLocalClustering() {
             return;
         }
         
-        // Perform simple clustering based on performance
-        $clusters = performSimpleClustering($students);
+        // Perform simple clustering based on category performance
+        $clusters = performSimpleClustering($students, $category);
         
         // Save results
-        saveClusteringResults($db, $students, $clusters);
+        saveClusteringResults($db, $students, $clusters, $category);
         
         // Generate report
         $report = generateClusteringReport($students, $clusters);
         
+        $categoryLabel = $category === 'literacy' ? 'Literacy' : ($category === 'math' ? 'Math' : 'Overall');
+        
         echo json_encode([
             'success' => true,
-            'message' => 'Clustering completed successfully',
-            'report' => $report
+            'message' => $categoryLabel . ' clustering completed successfully',
+            'report' => $report,
+            'category' => $category
         ]);
         
     } catch (Exception $e) {
@@ -42,7 +45,27 @@ function runLocalClustering() {
     }
 }
 
-function getStudentData($db) {
+function getStudentData($db, $category = 'all') {
+    // Build query based on category
+    $categoryFilter = "";
+    if ($category === 'literacy') {
+        // Filter for students who have played literacy games
+        $categoryFilter = " AND EXISTS (
+            SELECT 1 FROM game_sessions gs 
+            WHERE gs.user_id = u.user_id 
+            AND gs.game_category = 'literacy' 
+            AND gs.completed_at IS NOT NULL
+        )";
+    } elseif ($category === 'math') {
+        // Filter for students who have played math games
+        $categoryFilter = " AND EXISTS (
+            SELECT 1 FROM game_sessions gs 
+            WHERE gs.user_id = u.user_id 
+            AND gs.game_category = 'math' 
+            AND gs.completed_at IS NOT NULL
+        )";
+    }
+    
     $stmt = $db->prepare("
         SELECT 
             u.user_id,
@@ -56,6 +79,7 @@ function getStudentData($db) {
         LEFT JOIN student_progress sp ON u.user_id = sp.user_id
         WHERE u.is_active = 1 
             AND sp.games_played > 0
+            $categoryFilter
         ORDER BY u.user_id
     ");
     
@@ -63,17 +87,26 @@ function getStudentData($db) {
     return $stmt->fetchAll();
 }
 
-function performSimpleClustering($students) {
-    // Simple clustering based on performance level
+function performSimpleClustering($students, $category = 'all') {
+    // Simple clustering based on category performance
     $clusters = [];
     
     foreach ($students as $student) {
-        $overall = (float)$student['literacy_score'] + (float)$student['math_score'];
+        // Determine score based on category
+        if ($category === 'literacy') {
+            $score = (float)$student['literacy_score'];
+        } elseif ($category === 'math') {
+            $score = (float)$student['math_score'];
+        } else {
+            // For 'all', use average of both
+            $score = ((float)$student['literacy_score'] + (float)$student['math_score']) / 2;
+        }
         
-        if ($overall >= 150) {
+        // Cluster based on score thresholds
+        if ($score >= 75) {
             $cluster = 0; // High Achievers
             $label = 'High Achievers';
-        } elseif ($overall >= 100) {
+        } elseif ($score >= 50) {
             $cluster = 1; // Average Performers
             $label = 'Average Performers';
         } else {
@@ -85,19 +118,22 @@ function performSimpleClustering($students) {
             'user_id' => $student['user_id'],
             'cluster' => $cluster,
             'label' => $label,
-            'overall_score' => $overall
+            'score' => $score,
+            'literacy_score' => (float)$student['literacy_score'],
+            'math_score' => (float)$student['math_score']
         ];
     }
     
     return $clusters;
 }
 
-function saveClusteringResults($db, $students, $clusters) {
+function saveClusteringResults($db, $students, $clusters, $category = 'all') {
     // Delete old clustering results
     $stmt = $db->prepare("DELETE FROM clustering_reports");
     $stmt->execute();
     
-    // Mark old clustering_results as not current
+    // Mark old clustering_results for this category as not current
+    // For now, mark all as not current since we're doing category-specific clustering
     $stmt = $db->prepare("UPDATE clustering_results SET is_current = 0");
     $stmt->execute();
     
@@ -154,13 +190,22 @@ function saveClusteringResults($db, $students, $clusters) {
         $student = $studentMap[$item['user_id']];
         $literacyScore = (float)$student['literacy_score'];
         $mathScore = (float)$student['math_score'];
-        $overallPerformance = $literacyScore + $mathScore;
+        
+        // Calculate overall performance based on category
+        if ($category === 'literacy') {
+            $overallPerformance = $literacyScore; // Use literacy score for literacy clustering
+        } elseif ($category === 'math') {
+            $overallPerformance = $mathScore; // Use math score for math clustering
+        } else {
+            $overallPerformance = ($literacyScore + $mathScore) / 2; // Average for overall
+        }
         
         $features = json_encode([
             'literacy_score' => $literacyScore,
             'math_score' => $mathScore,
             'total_score' => (float)$student['total_score'],
-            'games_played' => (int)$student['games_played']
+            'games_played' => (int)$student['games_played'],
+            'category' => $category
         ]);
         
         $stmt->execute([

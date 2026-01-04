@@ -88,7 +88,7 @@ async function loadStudentsTable(searchTerm = "", filterLevel = "all") {
   tbody.innerHTML = ""
 
       if (result.students.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;">No students found</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">No students found</td></tr>'
         return
       }
 
@@ -128,9 +128,6 @@ async function loadStudentsTable(searchTerm = "", filterLevel = "all") {
           <td><span class="perf-badge ${performanceClass}">${
           student.performance_level || "low"
         }</span></td>
-          <td><button class="view-btn" onclick="viewStudentDetails(${
-            student.user_id
-          })">View</button></td>
         `
 
     tbody.appendChild(row)
@@ -191,27 +188,6 @@ async function loadClusteringData() {
         return
       }
 
-      // Summary Stats
-      const totalStudents = result.students.length
-      const summaryDiv = document.createElement("div")
-      summaryDiv.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem;"
-      
-      summaryDiv.innerHTML = `
-        <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:1rem;text-align:center;">
-          <div style="font-size:2rem;color:#10b981;font-weight:700;">${totalStudents}</div>
-          <div style="color:#a0a0a0;font-size:0.9rem;margin-top:0.5rem;">Students Analyzed</div>
-        </div>
-        <div style="background:rgba(102,126,234,0.1);border:1px solid rgba(102,126,234,0.3);border-radius:8px;padding:1rem;text-align:center;">
-          <div style="font-size:2rem;color:#667eea;font-weight:700;">${result.clusters.length}</div>
-          <div style="color:#a0a0a0;font-size:0.9rem;margin-top:0.5rem;">Clusters Formed</div>
-        </div>
-        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:1rem;text-align:center;">
-          <div style="font-size:2rem;color:#f59e0b;font-weight:700;">${new Date().toLocaleDateString()}</div>
-          <div style="color:#a0a0a0;font-size:0.9rem;margin-top:0.5rem;">Last Updated</div>
-        </div>
-      `
-      content.appendChild(summaryDiv)
-
       // Cluster emoji mapping
       const clusterEmojis = {
         'High Achievers': '🏆',
@@ -219,70 +195,66 @@ async function loadClusteringData() {
         'Needs Support': '🎯'
       }
 
-      // Display cluster cards
-      result.clusters.forEach((cluster) => {
-        const clusterCard = document.createElement("div")
-        clusterCard.className = "cluster-card"
-        const emoji = clusterEmojis[cluster.cluster_label] || '📊'
-        
-        clusterCard.innerHTML = `
-          <h3>${emoji} ${cluster.cluster_label}</h3>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-top:1rem;">
-            <div>
-              <div style="color:#667eea;font-size:1.5rem;font-weight:700;">${cluster.student_count}</div>
-              <div style="color:#a0a0a0;font-size:0.85rem;">Students</div>
-            </div>
-            <div>
-              <div style="color:#10b981;font-size:1.5rem;font-weight:700;">${Math.round(cluster.avg_literacy || 0)}%</div>
-              <div style="color:#a0a0a0;font-size:0.85rem;">Avg Literacy</div>
-            </div>
-            <div>
-              <div style="color:#8b5cf6;font-size:1.5rem;font-weight:700;">${Math.round(cluster.avg_math || 0)}%</div>
-              <div style="color:#a0a0a0;font-size:0.85rem;">Avg Math</div>
-            </div>
-            <div>
-              <div style="color:#f59e0b;font-size:1.5rem;font-weight:700;">${Math.round(cluster.avg_performance || 0)}%</div>
-              <div style="color:#a0a0a0;font-size:0.85rem;">Overall</div>
-            </div>
-          </div>
-        `
-        content.appendChild(clusterCard)
-      })
-
-      // Display students in clusters
+      // Display students in clusters - Table format (matching Students tab style)
       const studentsInClusters = document.createElement("div")
       studentsInClusters.className = "cluster-students"
-      studentsInClusters.innerHTML = "<h3>📋 Student Distribution</h3>"
-
-      const clusterGroups = {}
-      result.students.forEach((student) => {
-        if (!clusterGroups[student.cluster_number]) {
-          clusterGroups[student.cluster_number] = []
+      
+      // Create table container matching Students tab structure
+      const tableContainer = document.createElement("div")
+      tableContainer.className = "table-container"
+      
+      const table = document.createElement("table")
+      table.className = "students-table"
+      
+      // Table header
+      const thead = document.createElement("thead")
+      thead.innerHTML = `
+        <tr>
+          <th>Student Name</th>
+          <th>Cluster</th>
+          <th>Literacy Score</th>
+          <th>Math Score</th>
+          <th>Overall Score</th>
+        </tr>
+      `
+      table.appendChild(thead)
+      
+      // Table body
+      const tbody = document.createElement("tbody")
+      
+      // Sort students by cluster number, then by name
+      const sortedStudents = [...result.students].sort((a, b) => {
+        if (a.cluster_number !== b.cluster_number) {
+          return a.cluster_number - b.cluster_number
         }
-        clusterGroups[student.cluster_number].push(student)
+        return a.full_name.localeCompare(b.full_name)
       })
-
-      Object.keys(clusterGroups).sort().forEach((clusterNum) => {
-        const group = document.createElement("div")
-        group.className = "cluster-group"
-        const emoji = clusterEmojis[clusterGroups[clusterNum][0].cluster_label] || '📊'
+      
+      sortedStudents.forEach((student) => {
+        // Convert to numbers and calculate overall score
+        const literacyScore = parseFloat(student.literacy_score) || 0;
+        const mathScore = parseFloat(student.math_score) || 0;
+        const overallScore = (literacyScore + mathScore) / 2;
+        const emoji = clusterEmojis[student.cluster_label] || '📊'
         
-        group.innerHTML = `
-          <h4>${emoji} ${clusterGroups[clusterNum][0].cluster_label} (${clusterGroups[clusterNum].length} students)</h4>
-          <ul>
-            ${clusterGroups[clusterNum]
-              .map((s) => `
-                <li>
-                  <strong>${escapeHtml(s.full_name)}</strong> - 
-                  <span style="color:#10b981;">Literacy: ${Math.round(s.literacy_score || 0)}%</span>, 
-                  <span style="color:#8b5cf6;">Math: ${Math.round(s.math_score || 0)}%</span>
-                </li>
-              `)
-              .join("")}
-          </ul>
+        const row = document.createElement("tr")
+        row.innerHTML = `
+          <td>${escapeHtml(student.full_name)}</td>
+          <td>
+            <span class="cluster-badge">${emoji} ${escapeHtml(student.cluster_label)}</span>
+          </td>
+          <td>${Math.round(literacyScore)}%</td>
+          <td>${Math.round(mathScore)}%</td>
+          <td>${Math.round(overallScore)}%</td>
         `
-        studentsInClusters.appendChild(group)
+        tbody.appendChild(row)
       })
+      
+      table.appendChild(tbody)
+      tableContainer.appendChild(table)
+      
+      studentsInClusters.innerHTML = "<h3>📋 Student Distribution</h3>"
+      studentsInClusters.appendChild(tableContainer)
 
       content.appendChild(studentsInClusters)
     }
@@ -649,9 +621,91 @@ async function loadClusteringStatus() {
   }
 }
 
-async function runManualClustering() {
-  const button = document.querySelector('.run-clustering-btn')
+// Export clustering data to Excel
+async function exportClusteringToExcel(event) {
+  const exportBtn = event ? event.target.closest('.export-excel-btn') : document.querySelector('.export-excel-btn');
+  const originalText = exportBtn ? exportBtn.innerHTML : '';
+  
+  try {
+    // Show loading indicator
+    if (exportBtn) {
+      exportBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg> Exporting...';
+      exportBtn.disabled = true;
+    }
+    
+    // Fetch the file as blob
+    const exportUrl = '/ClusteringGame/api/export-clustering.php';
+    const response = await fetch(exportUrl);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    // Get the blob data
+    const blob = await response.blob();
+    
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Get filename from Content-Disposition header or use default
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'clustering_report.xls';
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up the URL object
+    window.URL.revokeObjectURL(url);
+    
+    // Show success message
+    if (typeof successModal === 'function') {
+      successModal('Excel file downloaded successfully!', 'Export Complete');
+    } else {
+      alert('Excel file downloaded successfully!');
+    }
+  } catch (error) {
+    console.error('Export error:', error);
+    if (typeof errorModal === 'function') {
+      errorModal('Failed to export Excel file: ' + error.message, 'Export Failed');
+    } else {
+      alert('Failed to export Excel file: ' + error.message);
+    }
+  } finally {
+    // Restore button
+    if (exportBtn) {
+      exportBtn.innerHTML = originalText;
+      exportBtn.disabled = false;
+    }
+  }
+}
+
+async function runManualClustering(category = 'all') {
+  // Find the button that was clicked
+  const buttons = document.querySelectorAll('.run-clustering-btn')
+  let button = null
+  
+  if (category === 'literacy') {
+    button = document.querySelector('.literacy-clustering-btn')
+  } else if (category === 'math') {
+    button = document.querySelector('.math-clustering-btn')
+  } else {
+    button = document.querySelector('.run-clustering-btn')
+  }
+  
+  if (!button) return
+  
   const originalText = button.innerHTML
+  const categoryLabel = category === 'literacy' ? 'Literacy' : category === 'math' ? 'Math' : 'Overall'
   
   try {
     // Show loading state
@@ -661,17 +715,17 @@ async function runManualClustering() {
         <circle cx="12" cy="12" r="10"></circle>
         <path d="M12 6v6l4 2"></path>
       </svg>
-      Running Clustering...
+      Running ${categoryLabel} Clustering...
     `
     
-    const response = await fetch('../api/clustering.php?action=run')
+    const response = await fetch(`../api/clustering.php?action=run&category=${category}`)
     const result = await response.json()
     
     if (result.success) {
       if (result.skipped) {
         await errorModal('Clustering was skipped: ' + result.message, 'Clustering Skipped')
       } else {
-        await successModal('Clustering completed successfully! The student performance analysis has been updated.', 'Clustering Complete')
+        await successModal(`${categoryLabel} clustering completed successfully! The student performance analysis has been updated.`, 'Clustering Complete')
         loadClusteringData() // Refresh clustering results
       }
       loadClusteringStatus() // Refresh status
